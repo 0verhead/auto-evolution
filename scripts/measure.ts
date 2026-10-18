@@ -29,6 +29,15 @@ export interface Measurement {
   /** Test 2: Stone, Bronze and Iron Units per winning Line from Round 10+. */
   oldUnitsInLateWinners: number;
   lateWinners: number;
+  /** Proposed test 1: share of winning Lines from Round 10+ that hold at least one Unit of each Age. */
+  latePresence: Record<Age, number>;
+}
+
+/** Proposed test 1: keeping an old Unit is a real choice when each old Age is in 30–70% of late winning Lines. */
+export const PRESENCE_RANGE = [0.3, 0.7] as const;
+
+export function presencePasses(m: Measurement): boolean {
+  return (["stone", "bronze", "iron"] as const).every((age) => m.latePresence[age] >= PRESENCE_RANGE[0] && m.latePresence[age] <= PRESENCE_RANGE[1]);
 }
 
 const OLD = new Set<Age>(["stone", "bronze", "iron"]);
@@ -68,6 +77,9 @@ export function measure(runs: number, seed: number, scouting = false): Measureme
     draws,
     oldUnitsInLateWinners: late.reduce((s, g) => s + count(g.line, OLD), 0) / Math.max(1, late.length),
     lateWinners: late.length,
+    latePresence: Object.fromEntries(
+      AGES.map((age) => [age, late.filter((g) => count(g.line, new Set([age])) > 0).length / Math.max(1, late.length)]),
+    ) as Record<Age, number>,
   };
 }
 
