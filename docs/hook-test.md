@@ -127,3 +127,5 @@ Measured per Unit instead of per Age, the picture differs. With the Ant Tribe Mo
 - Test 1 passes with both bot types in every seed. No old Unit is kept automatically, and every old Age stays in at least half of the late winning Lines.
 - With SAP's shop odds (every unlocked Unit equally likely) test 1 passes too, so making old Ages rarer in the shop isn't needed for it.
 - Test 2.5 (model player with previews, 6 Runs, seeds 301–306): 1 Run won, 4–10 wins in the others. It sold 4–9 Units per Run, and its winning Lines from Round 10+ held 2.60 old Units from 3.67 different Ages. It keeps some old Units and replaces others, and its winning Lines mix Ages.
+
+After this, the shop went back to SAP's odds (every unlocked Unit equally likely), since test 1 passes without making old Ages rarer. The rules are now the "adopted but with SAP's shop odds" row above.

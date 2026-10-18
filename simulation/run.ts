@@ -14,11 +14,8 @@ export const WINS_TO_WIN = 10;
 
 /** Shop odds; balance experiments (scripts/variants.ts) change them. */
 export const shopRules = {
-  /**
-   * Weight of Units from an Age two or more behind the latest one. SAP offers every unlocked pet equally (1);
-   * here old Units are rarer so that keeping one is a choice rather than automatic (docs/hook-test.md).
-   */
-  oldAgeWeight: 0.25,
+  /** Weight of Units from an Age two or more behind the latest one (1 = as likely as any other Unit, as in SAP). */
+  oldAgeWeight: 1,
 };
 
 export interface ShopUnit {
