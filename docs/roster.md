@@ -8,7 +8,7 @@ Three Units per Age (Front, Back, Bridge). Stats are borrowed from a Counterpart
 |---|---|---|---|---|---|
 | Front | Caveman → Big Caveman → Biggest Caveman | 🧔 | Cricket | 1/3 | Faint: summon a 1/1 / 2/2 / 3/3 Cousin. |
 | Back | Log Drummer → Bone Drummer → Thunder Drummer | 🥁 | Horse | 2/1 | Friend summoned: give it +1 / +2 / +3 attack until end of battle. |
-| Bridge | Gatherer → Tribe Mother → Great Mother | 👵 | Ant | 2/2 | Friend from a different Age faints: summon a 2/2 / 4/4 / 6/6 Cousin. |
+| Bridge | Gatherer → Tribe Mother → Great Mother | 👵 | Ant | 2/2 | Friend from a different Age faints: summon a 2/2 / 4/4 / 6/6 Cousin. Works 3 times per battle. |
 
 ## Bronze (Patience), SAP tier 2
 
@@ -46,7 +46,7 @@ Armor values are guesses to tune in playtesting. They have no SAP equivalent; th
 | Back | AI Core → Superintelligence → Singularity | 🧠 | Monkey | 1/2 | Start of battle: copy the ability of the friend ahead, at Stage 1 / 2 / 3. |
 | Bridge | Time Traveler → Chrononaut → Time Lord | 🛸 | Shark | 2/2 | Start of battle: gain +1/+1 / +2/+2 / +3/+3 for every friend from a different Age. |
 
-A copied ability works from the copier's point of view, as in SAP. "From a different Age" in an ability the AI Core copies means different from Sci-Fi.
+A copied ability works from the copier's point of view, as in SAP. "From a different Age" in an ability the AI Core copies means different from Sci-Fi. That made an AI Core behind a Tribe Mother summon Cousins without end (every Stone Cousin counts as a different Age), which is why the Tribe Mother works only 3 times per battle.
 
 ## Inventions
 
