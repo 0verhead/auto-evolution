@@ -1,6 +1,6 @@
 // Many bot Runs played in lockstep, each fighting another Run's Ghost from the same Round.
 import { playShop, type Personality } from "./bot";
-import { createRng, int, seedFrom } from "./rng";
+import { createRng, int, sample, seedFrom } from "./rng";
 import { newRun, resolveBattle, snapshot, type Run } from "./run";
 import type { Line } from "./types";
 
@@ -31,7 +31,19 @@ export interface LeagueResult {
 /** A safety net: a Run still going after this many Rounds is recorded as it stands. */
 const MAX_ROUNDS = 40;
 
-export function league(personalities: Personality[], runCount: number, seed: number): LeagueResult {
+/** Ghost Lines that scouting bots preview against, by Round (usually from an earlier league). */
+export type ScoutPool = Map<number, Line[]>;
+
+const SCOUTED_GHOSTS = 8;
+
+export function scoutPool(ghosts: Ghost[]): ScoutPool {
+  const pool: ScoutPool = new Map();
+  for (const g of ghosts) pool.set(g.round, [...(pool.get(g.round) ?? []), g.line]);
+  return pool;
+}
+
+export function league(personalities: Personality[], runCount: number, seed: number, pool?: ScoutPool): LeagueResult {
+  const lastPoolRound = pool ? Math.max(...pool.keys()) : 0;
   const rng = createRng(seed);
   let entrants = Array.from({ length: runCount }, (_, i) => ({
     index: i,
@@ -41,7 +53,10 @@ export function league(personalities: Personality[], runCount: number, seed: num
   const result: LeagueResult = { ghosts: [], winningLines: [], runs: [], runawayBattles: 0 };
 
   while (entrants.length > 0) {
-    for (const e of entrants) e.run = playShop(e.run, e.personality);
+    for (const e of entrants) {
+      const scouts = pool && e.personality.scout > 0 ? sample(rng, pool.get(Math.min(e.run.round, lastPoolRound)) ?? [], SCOUTED_GHOSTS) : [];
+      e.run = playShop(e.run, e.personality, scouts);
+    }
     const round = entrants[0]!.run.round;
     const lines = entrants.map((e) => snapshot(e.run));
     const ghosts = entrants.map((e, i) => ({ round, runIndex: e.index, personality: e.personality.name, line: lines[i]! }));

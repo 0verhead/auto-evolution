@@ -1,7 +1,9 @@
 // One utility-scored bot; a Personality is only a set of weights (see docs/hook-test.md).
+// With scouting, the bot also previews its options in battles against a sample of this Round's Ghosts.
+import { battle } from "./battle";
 import { unitDef } from "./roster";
 import { act, legalActions, type Action, type Run } from "./run";
-import type { Slot, Unit } from "./types";
+import type { Line, Slot, Unit } from "./types";
 import { ageIndex, ageOfUnit, stageOf } from "./units";
 
 export interface Personality {
@@ -10,17 +12,30 @@ export interface Personality {
   newest: number;
   /** Value per distinct Age in the Line. */
   mixing: number;
+  /** Value of beating every scouted Ghost; 0 means the bot doesn't scout. */
+  scout: number;
 }
 
-export const PURIST: Personality = { name: "Purist", newest: 3, mixing: 0 };
-export const MIXER: Personality = { name: "Mixer", newest: 0, mixing: 6 };
+export const PURIST: Personality = { name: "Purist", newest: 3, mixing: 0, scout: 0 };
+export const MIXER: Personality = { name: "Mixer", newest: 0, mixing: 6, scout: 0 };
+
+/** Scouting versions: the same biases, but options are judged mainly by previewed battles. */
+const SCOUT_WEIGHT = 100;
+export const SCOUTING_PURIST: Personality = { ...PURIST, scout: SCOUT_WEIGHT };
+export const SCOUTING_MIXER: Personality = { ...MIXER, scout: SCOUT_WEIGHT };
+/** Plays only to win: no Age bias at all. */
+export const SCOUT: Personality = { name: "Scout", newest: 0, mixing: 0, scout: SCOUT_WEIGHT };
+
+/** How many of the best options (by value) a scouting bot previews in battle. */
+const PREVIEWED_OPTIONS = 8;
 
 const MAX_REROLLS = 3;
 const REPLACE_MARGIN = 2;
 const SLOT_ORDER: Record<Slot, number> = { front: 0, bridge: 1, back: 2 };
 
-/** Picks the next shop action for this Run. */
-export function decide(run: Run, p: Personality): Action {
+/** Picks the next shop action for this Run. Scouting Personalities need Ghost Lines to preview against. */
+export function decide(run: Run, p: Personality, scouts: Line[] = []): Action {
+  if (p.scout > 0 && scouts.length > 0) return decideByScouting(run, p, scouts);
   const now = value(run, p);
   let best: { action: Action; gain: number } | null = null;
   for (const action of legalActions(run)) {
@@ -40,8 +55,8 @@ export function decide(run: Run, p: Personality): Action {
 }
 
 /** Plays the whole shop phase. */
-export function playShop(run: Run, p: Personality): Run {
-  for (let i = 0; i < 100 && run.phase === "shop"; i++) run = act(run, decide(run, p));
+export function playShop(run: Run, p: Personality, scouts: Line[] = []): Run {
+  for (let i = 0; i < 100 && run.phase === "shop"; i++) run = act(run, decide(run, p, scouts));
   if (run.phase === "shop") run = act(run, { type: "endShop" });
   return run;
 }
@@ -57,6 +72,61 @@ export function value(run: Run, p: Personality): number {
   }
   total += p.mixing * new Set(units.map(ageOfUnit)).size;
   return total;
+}
+
+function decideByScouting(run: Run, p: Personality, scouts: Line[]): Action {
+  const score = (r: Run) => value(r, p) + p.scout * winRate(r, scouts);
+  const now = score(run);
+  const nowValue = value(run, p);
+
+  // Plans are one action, or a sale followed by a purchase into the freed slot.
+  const plans: Action[][] = [];
+  for (const action of legalActions(run)) {
+    if (action.type === "buy" || action.type === "useInvention" || action.type === "merge") plans.push([action]);
+  }
+  if (run.line.every((u) => u !== null)) {
+    run.line.forEach((_, slot) => {
+      const sold = act(run, { type: "sell", slot });
+      for (const action of legalActions(sold)) {
+        if (action.type === "buy" && action.slot === slot) plans.push([{ type: "sell", slot }, action]);
+      }
+    });
+  }
+  const ranked = plans
+    .map((plan) => ({ plan, after: plan.reduce(act, run) }))
+    .map((x) => ({ ...x, gain: value(x.after, p) - nowValue }))
+    .sort((a, b) => b.gain - a.gain)
+    .slice(0, PREVIEWED_OPTIONS);
+  let best: { action: Action; gain: number } | null = null;
+  for (const { plan, after } of ranked) {
+    const gain = score(after) - now;
+    if (gain > (best?.gain ?? 0)) best = { action: plan[0]!, gain };
+  }
+  if (best) return best.action;
+
+  if (run.gold >= 4 && run.rerolls < MAX_REROLLS) return { type: "reroll" };
+
+  // Rearranging only counts if the previewed battles improve.
+  const currentRate = winRate(run, scouts);
+  let bestSwap: { action: Action; rate: number } | null = null;
+  for (const action of legalActions(run)) {
+    if (action.type !== "swap") continue;
+    const rate = winRate(act(run, action), scouts);
+    if (rate > (bestSwap?.rate ?? currentRate)) bestSwap = { action, rate };
+  }
+  return bestSwap?.action ?? { type: "endShop" };
+}
+
+/** Share of the scouted Ghosts this Line beats (draws count half), after its End of round abilities. */
+export function winRate(run: Run, scouts: Line[]): number {
+  const ready = run.phase === "shop" ? act(run, { type: "endShop" }) : run;
+  let score = 0;
+  scouts.forEach((ghost, i) => {
+    // The same seed per Ghost for every option, so options are compared on equal terms.
+    const outcome = battle(ready.line, ghost, i + 1).outcome;
+    score += outcome === "win" ? 1 : outcome === "draw" ? 0.5 : 0;
+  });
+  return score / scouts.length;
 }
 
 /** Selling a Unit to make room is only worth it if the best buy afterwards beats keeping it. */
