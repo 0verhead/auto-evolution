@@ -3,7 +3,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { AGE_NAMES, AGES } from "../simulation/types";
 import { ghostsFile } from "./ghosts";
-import { PRESENCE_RANGE, measure, presencePasses, type PersonalityStats } from "./measure";
+import { MAX_UNIT_PRESENCE, MIN_AGE_PRESENCE, measure, mostKeptOldUnit, oldUnits, presencePasses, type PersonalityStats } from "./measure";
+import { unitDef } from "../simulation/roster";
 import { VARIANTS } from "./variants";
 
 const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
@@ -24,8 +25,12 @@ console.log(line("Purist", m.purist));
 console.log(line("Mixer", m.mixer));
 if (m.scout) console.log(line("Scout", m.scout));
 
-const presence = AGES.map((a) => `${AGE_NAMES[a]} ${(m.latePresence[a] * 100).toFixed(0)}%`).join(", ");
-console.log(`\nTest 1 (keeping is a choice): ${m.lateWinners} winning Lines from Round 10+ hold ${presence}. Pass with Stone, Bronze and Iron each at ${PRESENCE_RANGE[0] * 100}–${PRESENCE_RANGE[1] * 100}%: ${presencePasses(m) ? "PASS" : "FAIL"}`);
+const ages = AGES.map((a) => `${AGE_NAMES[a]} ${(m.latePresence[a] * 100).toFixed(0)}%`).join(", ");
+const units = oldUnits().map((id) => `${unitDef(id).names[0]} ${((m.lateUnitPresence[id] ?? 0) * 100).toFixed(0)}%`).join(", ");
+console.log(`\nTest 1 (keeping is a choice), ${m.lateWinners} winning Lines from Round 10+:`);
+console.log(`  Ages: ${ages}`);
+console.log(`  old Units: ${units}`);
+console.log(`  Pass with every old Unit at most ${MAX_UNIT_PRESENCE * 100}% and every old Age at least ${MIN_AGE_PRESENCE * 100}%: ${presencePasses(m) ? "PASS" : "FAIL"} (most kept: ${unitDef(mostKeptOldUnit(m).id).names[0]})`);
 console.log(`  For reference: Mixer wins ${(m.mixerHeadToHead * 100).toFixed(1)}% head to head against the Purist in Rounds 9–12; ${m.oldUnitsInLateWinners.toFixed(2)} old Units per late winning Line.\n`);
 
 mkdirSync("out", { recursive: true });

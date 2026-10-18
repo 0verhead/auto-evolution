@@ -11,8 +11,8 @@ export interface Variant {
 
 function rareOldAges(weight: number): Variant {
   return {
-    name: `old-ages-${weight}`,
-    description: `Units from an Age two or more behind the latest appear at ${weight}× the usual rate`,
+    name: weight === 1 ? "sap-shop-odds" : `old-ages-${weight}`,
+    description: weight === 1 ? "SAP's shop odds: every unlocked Unit is equally likely" : `Units from an Age two or more behind the latest appear at ${weight}× the rate of newer ones`,
     apply: () => {
       const before = shopRules.oldAgeWeight;
       shopRules.oldAgeWeight = weight;
@@ -38,15 +38,6 @@ const weakerStone: Variant = {
         b.u.health = b.health;
       }
     };
-  },
-};
-
-const both: Variant = {
-  name: "both",
-  description: "old-ages-0.5 and weaker-stone together",
-  apply: () => {
-    const undo = [rareOldAges(0.5).apply(), weakerStone.apply()];
-    return () => undo.forEach((f) => f());
   },
 };
 
@@ -113,24 +104,6 @@ function stats(name: string, description: string, changes: Record<string, [numbe
   };
 }
 
-/** Sci-Fi is the last Age, as tier 6 is SAP's, so it takes tier-6 Counterparts: Gorilla, Tiger (also copies the friend ahead) and Fly. */
-const scifiTier6 = stats("scifi-tier6", "Sci-Fi takes SAP tier-6 Counterparts: Cyborg 7/10, AI Core 6/4, Time Traveler 4/4", {
-  cyborg: [7, 10],
-  aicore: [6, 4],
-  timetraveler: [4, 4],
-});
-
-// Later Ages take Counterparts from higher SAP tiers; stats still come from SAP pets (docs/roster.md lists the originals).
-const MODERN_TIER5: Record<string, [number, number]> = { worker: [4, 6], banker: [3, 4], salesman: [3, 8] }; // Cow, Turkey, Seal
-const SCIFI_TIER6: Record<string, [number, number]> = { cyborg: [7, 10], aicore: [6, 4], timetraveler: [4, 4] }; // Gorilla, Tiger, Fly
-const IRON_TIER4: Record<string, [number, number]> = { legionary: [3, 6], shieldbearer: [2, 5], recruiter: [1, 3] }; // Blowfish, Turtle, Penguin
-const sapShift = stats("sap-shift", "Modern takes SAP tier-5 and Sci-Fi tier-6 Counterparts", { ...MODERN_TIER5, ...SCIFI_TIER6 });
-const sapShiftFull = stats("sap-shift-full", "Iron takes SAP tier-4, Modern tier-5 and Sci-Fi tier-6 Counterparts (tiers 1, 2, 4, 5, 6)", {
-  ...IRON_TIER4,
-  ...MODERN_TIER5,
-  ...SCIFI_TIER6,
-});
-
 function curve(name: string, extra: Record<string, number>): Variant {
   const text = Object.entries(extra).map(([age, n]) => `${age} +${n}/+${n}`).join(", ");
   return stats(
@@ -142,17 +115,6 @@ function curve(name: string, extra: Record<string, number>): Variant {
 
 const steeperCurve = curve("steeper-curve", { iron: 1, modern: 2, scifi: 3 });
 const steepestCurve = curve("steepest-curve", { iron: 1, modern: 3, scifi: 5 });
-
-function combined(name: string, parts: Variant[]): Variant {
-  return {
-    name,
-    description: parts.map((p) => p.name).join(" + "),
-    apply: () => {
-      const undo = parts.map((p) => p.apply());
-      return () => undo.reverse().forEach((f) => f());
-    },
-  };
-}
 
 type Ability = Pick<UnitDef, "names" | "trigger" | "text" | "battle" | "shop">;
 
@@ -192,26 +154,6 @@ const STORY_BRIDGES: Record<string, Ability> = {
       const caveman = b.friends(self).find((f) => f.age === "stone");
       if (caveman) b.buff(caveman, 4 * n, 0);
     },
-  },
-};
-
-/** The Tribe Mother takes her Counterpart's effect (SAP's Ant), keeping the Bridge filter: her last gift goes to the stranger. */
-const antGatherer: Variant = {
-  name: "ant-gatherer",
-  description: "Tribe Mother: Faint: give a random friend from a different Age +2/+1 (+4/+2, +6/+3), as SAP's Ant",
-  apply: () => {
-    const d = unitDef("gatherer");
-    const saved = { trigger: d.trigger, text: d.text, battle: d.battle, usesPerBattle: d.usesPerBattle };
-    Object.assign(d, {
-      trigger: "faint",
-      usesPerBattle: undefined,
-      text: (n: number) => `Faint: give a random friend from a different Age +${2 * n}/+${n}.`,
-      battle: ((b, self, n) => {
-        const target = b.pick(b.friends(self).filter((f) => f.age !== self.age));
-        if (target) b.buff(target, 2 * n, n);
-      }) satisfies UnitDef["battle"],
-    });
-    return () => Object.assign(d, saved);
   },
 };
 
@@ -287,36 +229,17 @@ const storyBridges: Variant = {
 
 export const VARIANTS: Variant[] = [
   { name: "baseline", description: "Rules as in docs/roster.md", apply: () => () => {} },
+  rareOldAges(1),
   rareOldAges(0.5),
-  rareOldAges(0.25),
   weakerStone,
-  both,
   patienceEveryOther,
   patienceCapped,
   patienceFlat,
   strongerBridges("bridges-x2", BRIDGES, 2),
   strongerBridges("bridges-x3", BRIDGES, 3),
-  strongerBridges("time-traveler-x2", ["timetraveler"], 2),
   storyBridges,
-  scifiTier6,
   steeperCurve,
-  combined("scifi-tier6+old-0.25", [scifiTier6, rareOldAges(0.25)]),
-  combined("steeper+old-0.25", [steeperCurve, rareOldAges(0.25)]),
-  combined("steeper+old-0.25+weak-stone", [steeperCurve, rareOldAges(0.25), weakerStone]),
-  combined("steepest+old-0.25", [steepestCurve, rareOldAges(0.25)]),
-  combined("sap-shift+old-0.5", [sapShift, rareOldAges(0.5)]),
-  combined("sap-shift+old-0.25", [sapShift, rareOldAges(0.25)]),
-  combined("sap-shift-full+old-0.5", [sapShiftFull, rareOldAges(0.5)]),
-  combined("sap-shift-full+old-0.25", [sapShiftFull, rareOldAges(0.25)]),
-  antGatherer,
-  combined("ant+sap-shift+old-0.5", [antGatherer, sapShift, rareOldAges(0.5)]),
-  combined("ant+sap-shift-full+old-0.5", [antGatherer, sapShiftFull, rareOldAges(0.5)]),
-  combined("ant+sap-shift-full+old-0.25", [antGatherer, sapShiftFull, rareOldAges(0.25)]),
+  steepestCurve,
   biggerRoster(3),
-  combined("roster-x3+sap-shift-full", [biggerRoster(3), sapShiftFull]),
-  combined("roster-x3+ant+sap-shift-full", [biggerRoster(3), antGatherer, sapShiftFull]),
   sapLateEffects,
-  combined("late+sap-shift-full+old-0.5", [sapLateEffects, sapShiftFull, rareOldAges(0.5)]),
-  combined("late+ant+sap-shift-full+old-0.5", [sapLateEffects, antGatherer, sapShiftFull, rareOldAges(0.5)]),
-  combined("late+ant+sap-shift-full+old-0.25", [sapLateEffects, antGatherer, sapShiftFull, rareOldAges(0.25)]),
 ];

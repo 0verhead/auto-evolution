@@ -3,7 +3,7 @@ import { battle } from "../simulation/battle";
 import { MIXER, PURIST, SCOUT, SCOUTING_MIXER, SCOUTING_PURIST } from "../simulation/bot";
 import { league, scoutPool, type LeagueResult } from "../simulation/league";
 import { createRng, pick, seedFrom } from "../simulation/rng";
-import { unitDef } from "../simulation/roster";
+import { UNITS, unitDef } from "../simulation/roster";
 import { AGES, type Age, type Line } from "../simulation/types";
 
 export interface PersonalityStats {
@@ -29,15 +29,31 @@ export interface Measurement {
   /** Test 2: Stone, Bronze and Iron Units per winning Line from Round 10+. */
   oldUnitsInLateWinners: number;
   lateWinners: number;
-  /** Proposed test 1: share of winning Lines from Round 10+ that hold at least one Unit of each Age. */
+  /** Share of winning Lines from Round 10+ that hold at least one Unit of each Age. */
   latePresence: Record<Age, number>;
+  /** Share of winning Lines from Round 10+ that hold each Unit, by Unit id. */
+  lateUnitPresence: Record<string, number>;
 }
 
-/** Proposed test 1: keeping an old Unit is a real choice when each old Age is in 30–70% of late winning Lines. */
-export const PRESENCE_RANGE = [0.3, 0.7] as const;
+/**
+ * Test 1: keeping an old Unit is a real choice. No old Unit is in more than 70% of late winning Lines
+ * (else keeping it is automatic), and each old Age is in at least 30% (else old Units are dead weight).
+ */
+export const MAX_UNIT_PRESENCE = 0.7;
+export const MIN_AGE_PRESENCE = 0.3;
+export const OLD_AGES = ["stone", "bronze", "iron"] as const;
+
+export function oldUnits(): string[] {
+  return UNITS.filter((u) => !u.token && (OLD_AGES as readonly string[]).includes(u.age)).map((u) => u.id);
+}
 
 export function presencePasses(m: Measurement): boolean {
-  return (["stone", "bronze", "iron"] as const).every((age) => m.latePresence[age] >= PRESENCE_RANGE[0] && m.latePresence[age] <= PRESENCE_RANGE[1]);
+  return oldUnits().every((id) => (m.lateUnitPresence[id] ?? 0) <= MAX_UNIT_PRESENCE) && OLD_AGES.every((age) => m.latePresence[age] >= MIN_AGE_PRESENCE);
+}
+
+/** The old Unit kept most often, which is what usually decides test 1's upper limit. */
+export function mostKeptOldUnit(m: Measurement): { id: string; share: number } {
+  return oldUnits().map((id) => ({ id, share: m.lateUnitPresence[id] ?? 0 })).sort((a, b) => b.share - a.share)[0]!;
 }
 
 const OLD = new Set<Age>(["stone", "bronze", "iron"]);
@@ -80,6 +96,9 @@ export function measure(runs: number, seed: number, scouting = false): Measureme
     latePresence: Object.fromEntries(
       AGES.map((age) => [age, late.filter((g) => count(g.line, new Set([age])) > 0).length / Math.max(1, late.length)]),
     ) as Record<Age, number>,
+    lateUnitPresence: Object.fromEntries(
+      UNITS.filter((u) => !u.token).map((u) => [u.id, late.filter((g) => g.line.some((x) => x?.def === u.id)).length / Math.max(1, late.length)]),
+    ),
   };
 }
 

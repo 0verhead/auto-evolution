@@ -48,7 +48,7 @@ A Unit whose ability is filtered on friends or enemies "from a different Age". I
 _Avoid_: Synergy unit, combo unit
 
 **Counterpart**:
-The Super Auto Pets pet, from the tier that arrives in the same Round as a Unit's Age, whose base stats the Unit borrows because its ability is similar, or, when that tier has no similar ability, similarly strong. Stone matches SAP tier 1, and so on up to Sci-Fi at tier 5.
+The Super Auto Pets pet whose base stats a Unit borrows because its ability is similar, or, when that tier has no similar ability, similarly strong. Stone, Bronze, Iron, Modern and Sci-Fi take their Counterparts from SAP tiers 1, 2, 4, 5 and 6.
 
 **Cousin**:
 A token Unit that Stone abilities summon during battle. It has no Stage and is gone after the battle.
