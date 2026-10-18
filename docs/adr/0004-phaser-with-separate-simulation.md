@@ -1,0 +1,3 @@
+# Phaser 4 renders; a separate pure-TypeScript simulation owns the rules
+
+The game is built in TypeScript with Vite and rendered with Phaser 4. All game rules (shop, battle, bot) live in a simulation module that never imports Phaser. A battle produces a list of events (attack, hurt, faint, summon, buff and so on), and Phaser only plays those events back and forwards player input. We chose Phaser over React/DOM (battle animation gets awkward) and PixiJS (a renderer only, so input, scenes and scaling would be built by hand). The split keeps the rules testable in Node and reusable on a future server (see ADR 0003), and keeps a renderer swap from touching any rule.
