@@ -1,5 +1,5 @@
 // Balance variants for experiments. Each one changes the rules in place and returns a function that restores them.
-import { UNITS, unitDef } from "../simulation/roster";
+import { UNITS, UNIT_BY_ID, unitDef } from "../simulation/roster";
 import type { UnitDef } from "../simulation/types";
 import { shopRules } from "../simulation/run";
 
@@ -120,6 +120,17 @@ const scifiTier6 = stats("scifi-tier6", "Sci-Fi takes SAP tier-6 Counterparts: C
   timetraveler: [4, 4],
 });
 
+// Later Ages take Counterparts from higher SAP tiers; stats still come from SAP pets (docs/roster.md lists the originals).
+const MODERN_TIER5: Record<string, [number, number]> = { worker: [4, 6], banker: [3, 4], salesman: [3, 8] }; // Cow, Turkey, Seal
+const SCIFI_TIER6: Record<string, [number, number]> = { cyborg: [7, 10], aicore: [6, 4], timetraveler: [4, 4] }; // Gorilla, Tiger, Fly
+const IRON_TIER4: Record<string, [number, number]> = { legionary: [3, 6], shieldbearer: [2, 5], recruiter: [1, 3] }; // Blowfish, Turtle, Penguin
+const sapShift = stats("sap-shift", "Modern takes SAP tier-5 and Sci-Fi tier-6 Counterparts", { ...MODERN_TIER5, ...SCIFI_TIER6 });
+const sapShiftFull = stats("sap-shift-full", "Iron takes SAP tier-4, Modern tier-5 and Sci-Fi tier-6 Counterparts (tiers 1, 2, 4, 5, 6)", {
+  ...IRON_TIER4,
+  ...MODERN_TIER5,
+  ...SCIFI_TIER6,
+});
+
 function curve(name: string, extra: Record<string, number>): Variant {
   const text = Object.entries(extra).map(([age, n]) => `${age} +${n}/+${n}`).join(", ");
   return stats(
@@ -184,6 +195,47 @@ const STORY_BRIDGES: Record<string, Ability> = {
   },
 };
 
+/** The Tribe Mother takes her Counterpart's effect (SAP's Ant), keeping the Bridge filter: her last gift goes to the stranger. */
+const antGatherer: Variant = {
+  name: "ant-gatherer",
+  description: "Tribe Mother: Faint: give a random friend from a different Age +2/+1 (+4/+2, +6/+3), as SAP's Ant",
+  apply: () => {
+    const d = unitDef("gatherer");
+    const saved = { trigger: d.trigger, text: d.text, battle: d.battle, usesPerBattle: d.usesPerBattle };
+    Object.assign(d, {
+      trigger: "faint",
+      usesPerBattle: undefined,
+      text: (n: number) => `Faint: give a random friend from a different Age +${2 * n}/+${n}.`,
+      battle: ((b, self, n) => {
+        const target = b.pick(b.friends(self).filter((f) => f.age !== self.age));
+        if (target) b.buff(target, 2 * n, n);
+      }) satisfies UnitDef["battle"],
+    });
+    return () => Object.assign(d, saved);
+  },
+};
+
+/**
+ * Simulates a bigger roster without new content: every shop Unit exists `copies` times under different ids.
+ * They are identical, but only the same copy merges, so duplicates become as rare as in a roster that many times larger
+ * (SAP's Turtle Pack has 10 pets per tier; v1 has 3 Units per Age).
+ */
+function biggerRoster(copies: number): Variant {
+  return {
+    name: `roster-x${copies}`,
+    description: `Every Unit exists ${copies} times, so duplicates are as rare as with ${3 * copies} Units per Age`,
+    apply: () => {
+      const clones = UNITS.filter((u) => !u.token).flatMap((u) => Array.from({ length: copies - 1 }, (_, i) => ({ ...u, id: `${u.id}#${i + 2}` })));
+      UNITS.push(...clones);
+      for (const c of clones) UNIT_BY_ID.set(c.id, c);
+      return () => {
+        UNITS.splice(UNITS.length - clones.length, clones.length);
+        for (const c of clones) UNIT_BY_ID.delete(c.id);
+      };
+    },
+  };
+}
+
 const storyBridges: Variant = {
   name: "story-bridges",
   description: "Recruiter → Stone (barbarian auxiliaries), Tourist → Bronze (pyramid tourism), Pharaoh → Sci-Fi (aliens built the pyramids), Time Traveler → Stone (a laser for the caveman)",
@@ -216,4 +268,15 @@ export const VARIANTS: Variant[] = [
   combined("steeper+old-0.25", [steeperCurve, rareOldAges(0.25)]),
   combined("steeper+old-0.25+weak-stone", [steeperCurve, rareOldAges(0.25), weakerStone]),
   combined("steepest+old-0.25", [steepestCurve, rareOldAges(0.25)]),
+  combined("sap-shift+old-0.5", [sapShift, rareOldAges(0.5)]),
+  combined("sap-shift+old-0.25", [sapShift, rareOldAges(0.25)]),
+  combined("sap-shift-full+old-0.5", [sapShiftFull, rareOldAges(0.5)]),
+  combined("sap-shift-full+old-0.25", [sapShiftFull, rareOldAges(0.25)]),
+  antGatherer,
+  combined("ant+sap-shift+old-0.5", [antGatherer, sapShift, rareOldAges(0.5)]),
+  combined("ant+sap-shift-full+old-0.5", [antGatherer, sapShiftFull, rareOldAges(0.5)]),
+  combined("ant+sap-shift-full+old-0.25", [antGatherer, sapShiftFull, rareOldAges(0.25)]),
+  biggerRoster(3),
+  combined("roster-x3+sap-shift-full", [biggerRoster(3), sapShiftFull]),
+  combined("roster-x3+ant+sap-shift-full", [biggerRoster(3), antGatherer, sapShiftFull]),
 ];

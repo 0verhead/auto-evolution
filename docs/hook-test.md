@@ -4,12 +4,13 @@ The prototype exists to answer one question: do old Units stay relevant through 
 
 | # | Test | Measure | Passes at |
 |---|---|---|---|
-| 1 | Mixing pays off | Mixer against Purist, Ghosts from the same Round (9–12), 1,000 seeded Runs | Mixer wins at least 55% (above about 65% means mixing is mandatory, which is also a failure) |
-| 2 | Old Units stay | Lines of both Personalities that win in Round 10+ | On average at least 2 Units from Stone, Bronze or Iron |
-| 2.5 | Model player (optional, after the prototype runs) | An offline bot backed by OpenAI's Decisions API, told only to win, with no hint about mixing | It keeps old Units and mixes Ages without being told to |
-| 3 | Humans (after 1 and 2) | 3–5 testers, several Runs each | Testers keep or buy old Units on purpose in late Rounds and can say why |
+| 1 | Keeping an old Unit is a choice | Winning Lines from Round 10+, 1,000 seeded Runs, with simple and with scouting bots | Each old Age (Stone, Bronze, Iron) appears in 30–70% of them. Below 30% old Units are dead weight; above 70% keeping them is automatic. |
+| 2.5 | Model player (optional) | An offline bot backed by OpenAI's Decisions API, told only to win, with no hint about mixing | It keeps some old Units and replaces others, and its winning Lines mix Ages |
+| 3 | Humans (after 1) | 3–5 testers, several Runs each | Testers keep or buy old Units on purpose in late Rounds and can say why |
 
-Tests 1 and 2 use the utility-scored bot with its two Personalities and run in Node. Test 2.5 runs offline only and stores its Lines as Ghosts. Its API key comes from the environment at runtime and is never committed.
+Test 1 runs in Node with the utility-scored bots (`npm run hook`, `npm run compare`). Test 2.5 runs offline only and stores its Lines as Ghosts. Its API key comes from the environment at runtime and is never committed.
+
+Until 2026-10-19 test 1 was "the Mixer beats the Purist in 55–65% of Round 9–12 battles" and test 2 was "at least 2 old Units per late winning Line". They were replaced because nearly every Line is mixed whatever a player aims for, so the Mixer and the Purist barely differ, and because the new test 1's lower limit already covers old Units staying relevant. Results before that date refer to the old tests.
 
 ## Results
 
@@ -86,3 +87,19 @@ Neither change moves test 1. Both reduce Stone in the Purist's winning Lines, bu
 
 - Keeping old Units only becomes a choice once later Ages are clearly stronger and old Ages show up less in the shop. Only the steepest curve with rarer old Ages passes, with both bot types.
 - It then fails test 2 narrowly (1.63–1.92 old Units per winning Line instead of at least 2). The two tests pull against each other; the thresholds need a decision.
+
+**2026-10-19, versions closer to SAP** (test 1 = each old Age in 30–70% of late winning Lines; simple bots 5 seeds, scouting bots 3 seeds). None passes; Stone stays far above 70%.
+
+| Variant | Simple bots: Stone / Bronze / Iron | Scouting bots: Stone / Bronze / Iron |
+|---|---|---|
+| Modern from SAP tier 5, Sci-Fi from tier 6, old Ages 0.5× | 88% / 73% / 53% | 93% / 70% / 29% |
+| … old Ages 0.25× | 83% / 70% / 58% | 88% / 68% / 35% |
+| Iron from tier 4 as well (tiers 1, 2, 4, 5, 6), old Ages 0.5× | 87% / 69% / 74% | 90% / 62% / 67% |
+| … old Ages 0.25× | 81% / 68% / 78% | 82% / 62% / 72% |
+| Tribe Mother with her Counterpart's effect (SAP's Ant: "Faint: give a random friend from a different Age +2/+1") | 98% / 87% / 68% | 99% / 85% / 44% |
+| … with tiers 1, 2, 4, 5, 6 and old Ages 0.25× | 77% / 66% / 79% | 81% / 57% / 76% |
+| Every Unit three times (duplicates as rare as with 9 Units per Age), tiers 1, 2, 4, 5, 6 | 90% / 76% / 62% | 93% / 75% / 47% |
+
+- The Tribe Mother was in 91% of late winning Lines and her effect is far above tier-1 strength, but giving her the Ant's effect only lets other Stone Units take her place. A bigger roster doesn't help either, so duplicates being easy isn't the cause.
+- The cause is where stats pile up. Stone Units in late winning Lines have 20.3 attack plus health on average (70% at Stage 2, 21% at Stage 3) from merges, Inventions and other Units' buffs. A fresh Sci-Fi Unit has 12–17 even with SAP tier-6 stats.
+- The later Ages lack SAP's late-game effects. SAP's tier-5 and tier-6 pets scale or affect the whole team (Leopard, Mammoth, Shark, Turkey). Modern's Industry abilities work only in the shop (the Clerk is in 1% of late winning Lines), and in Sci-Fi only the Cyborg matters (86%; AI Core 18%, Time Traveler 29%).

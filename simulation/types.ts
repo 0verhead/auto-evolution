@@ -59,6 +59,7 @@ export interface BattleUnit {
 }
 
 export interface BattleApi {
+  pick<T>(items: readonly T[]): T | undefined;
   friends(self: BattleUnit): BattleUnit[];
   ahead(self: BattleUnit): BattleUnit | undefined;
   frontEnemy(self: BattleUnit): BattleUnit | undefined;
@@ -92,6 +93,8 @@ export interface UnitDef {
   token?: boolean;
   /** "Works N times per battle", as on some SAP pets. */
   usesPerBattle?: number;
+  /** Its ability copies another ability, so it can't itself be copied. */
+  copiesAbilities?: boolean;
   text(stage: Stage): string;
   battle?(api: BattleApi, self: BattleUnit, stage: Stage, subject?: BattleUnit): void;
   shop?(api: ShopApi, self: Unit, stage: Stage, subject?: Unit): void;

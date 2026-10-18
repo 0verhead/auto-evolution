@@ -12,7 +12,7 @@ const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
 
 console.log(`${runs} Runs × ${seeds} seeds per variant${scouting ? ", scouting bots" : ""}\n`);
-console.log("variant          | new test 1: Stone / Bronze / Iron in late winners (seeds passing) | old test 1 Mixer h2h (min–max) | test 2 old Units | avg wins P / M | Runs won P / M" + (scouting ? " | Scout: Runs won, old Units, Ages in late winners" : ""));
+console.log("variant          | test 1: Stone / Bronze / Iron in late winners (seeds passing)     | Mixer h2h (min–max)            | old Units/Line   | avg wins P / M | Runs won P / M" + (scouting ? " | Scout: Runs won, old Units, Ages in late winners" : ""));
 for (const variant of variants) {
   const restore = variant.apply();
   const ms = Array.from({ length: seeds }, (_, i) => measure(runs, i + 1, scouting));
