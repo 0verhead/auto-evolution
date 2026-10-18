@@ -1,0 +1,3 @@
+# The whole game runs in the browser on a deterministic simulation
+
+In v1 the shop, the battle simulation, bot Ghosts and save data all live in the browser, and the game is hosted as static files with no backend. The simulation is pure and deterministic: the same two Lines and the same seed always produce the same battle, independent of rendering. This keeps v1 free of infrastructure while the hook is tested. It also means a later backend can store real players' Ghosts and re-run battles with the same code to reject faked wins, without changing any game logic. All randomness must therefore go through a seeded generator, and nothing in the simulation can read the clock or the renderer.
