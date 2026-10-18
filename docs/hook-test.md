@@ -36,3 +36,16 @@ Neither change moves test 1. Both reduce Stone in the Purist's winning Lines, bu
 - Fuller rules, the last 3 battles, the actions taken this Round and a scouting estimate barely helped: 1–4 wins per Run, no Run won.
 - With `--preview` (every action shows the Line's estimated win rate against 30 of this Round's Ghosts), it won 3 of 6 Runs, against about 20% for the bots. Its winning Lines from Round 10+ held 5.00 Stone, Bronze or Iron Units and no Modern or Sci-Fi Unit. It never sold a Unit. It won by growing Bronze Units (a Chief Scribe at 31/11, a Pyramid Builder at 11/29) behind Stone ones.
 - With previews the model plays close to a battle oracle, so this result is about the rules more than about the model. Bronze's Patience grows without limit and beats later Ages, the opposite of the hook's "old Units support new ones".
+
+**2026-10-18, Bronze Patience variants and the model player** (`npm run compare 1000 5`, `npm run model-play 6 301 --preview [--variant=…]`):
+
+- The bots barely react to the Patience variants. Test 1 stays at 50–54% (growth every second Round 50.4%, at most +10 per Unit 53.1%, +1 at every Stage 52.6%). The bot values current stats only, so it never builds around growth and can't measure this lever.
+- The model player could, but at first it never sold a Unit. The preview made selling look bad because a sale leaves an empty slot for a moment. With "replace X with Y" offered as a single option with its own preview, it sells and mixes:
+
+| Variant (model player with previews, 6 Runs) | Runs won | Old Units in winning Lines from Round 10+ | Distinct Ages per winning Line |
+|---|---|---|---|
+| baseline, before "replace" | 3 of 6 | 5.00 | 2.67 |
+| baseline | 3 of 6 | 3.83 | 3.33 |
+| at most +10 per Bronze Unit | 3 of 6 | 3.65 | 3.06 |
+
+- Its winning Lines now look like the hook: a Sci-Fi Cyborg and Time Traveler at the front, with Stone (Tribe Mother, Caveman) and Bronze (Brick Carrier) Units supporting them. The +10 cap kept the win rate and reduced old Units a little. Six Runs per variant are too few to rank the variants; these results show behaviour, not a significant difference.

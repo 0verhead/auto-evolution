@@ -1,6 +1,7 @@
 // Hook tests 1 and 2 from docs/hook-test.md: npm run hook [runs] [seed] [variant]
 import { mkdirSync, writeFileSync } from "node:fs";
 import { AGE_NAMES, AGES } from "../simulation/types";
+import { ghostsFile } from "./ghosts";
 import { measure, type PersonalityStats } from "./measure";
 import { VARIANTS } from "./variants";
 
@@ -24,5 +25,5 @@ console.log(`\nTest 1 (mixing pays off): Mixer wins ${(m.mixerHeadToHead * 100).
 console.log(`Test 2 (old Units stay): ${m.oldUnitsInLateWinners.toFixed(2)} Stone/Bronze/Iron Units on average in ${m.lateWinners} winning Lines from Round 10+. Pass at ≥ 2: ${m.oldUnitsInLateWinners >= 2 ? "PASS" : "FAIL"}`);
 
 mkdirSync("out", { recursive: true });
-writeFileSync("out/ghosts.json", JSON.stringify(m.result.ghosts));
-console.log(`\nSaved ${m.result.ghosts.length} Ghosts to out/ghosts.json`);
+writeFileSync(ghostsFile(variant.name), JSON.stringify(m.result.ghosts));
+console.log(`\nSaved ${m.result.ghosts.length} Ghosts to ${ghostsFile(variant.name)}`);

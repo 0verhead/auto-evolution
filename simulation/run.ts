@@ -309,6 +309,7 @@ function useShopAbility(run: Run, unit: Unit, subject?: Unit): void {
 
 function shopApi(run: Run): ShopApi {
   return {
+    round: run.round,
     friends: (self) => units(run).filter((u) => u !== self),
     behind: (self) => run.line.slice(run.line.indexOf(self) + 1).find((u) => u !== null) ?? undefined,
     ageOf: ageOfUnit,

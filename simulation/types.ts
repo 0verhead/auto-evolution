@@ -33,6 +33,8 @@ export interface Unit {
   exp: number;
   tempAttack: number;
   tempHealth: number;
+  /** Stats this Unit has given through its End of round ability, for balance experiments that cap Patience. */
+  grown?: number;
 }
 
 /** Five slots, front (index 0) to back. */
@@ -68,6 +70,7 @@ export interface BattleApi {
 }
 
 export interface ShopApi {
+  round: number;
   friends(self: Unit): Unit[];
   behind(self: Unit): Unit | undefined;
   ageOf(unit: Unit): Age;
