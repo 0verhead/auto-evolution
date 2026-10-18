@@ -7,6 +7,7 @@
     "hook": "tsx scripts/hook.ts",
     "model-play": "tsx scripts/model-play.ts",
     "compare": "tsx scripts/compare.ts",
+    "pairings": "tsx scripts/pairings.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

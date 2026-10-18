@@ -100,6 +100,60 @@ function strongerBridges(name: string, ids: string[], factor: number): Variant {
   };
 }
 
+type Ability = Pick<UnitDef, "names" | "trigger" | "text" | "battle" | "shop">;
+
+/** Bridges that pair with one specific Age through a story, with the effect following from the story. */
+const STORY_BRIDGES: Record<string, Ability> = {
+  // Rome took "barbarian" tribes into its army as auxiliaries.
+  recruiter: {
+    names: ["Recruiter", "Drillmaster", "General"],
+    trigger: "startOfBattle",
+    text: (n) => `Start of battle: give every Stone friend ${2 * n} Armor.`,
+    battle: (b, self, n) => {
+      for (const friend of b.friends(self)) if (friend.age === "stone") b.giveArmor(friend, 2 * n);
+    },
+  },
+  // Tourists pay to see the pyramids.
+  salesman: {
+    names: ["Tourist", "Tour Guide", "Tour Operator"],
+    trigger: "startOfRound",
+    text: (n) => `Start of round: gain ${n} gold for every Bronze friend.`,
+    shop: (s, self, n) => s.gainGold(n * s.friends(self).filter((f) => s.ageOf(f) === "bronze").length),
+  },
+  // "Aliens built the pyramids": the pharaoh honours the visitors from the stars.
+  pharaoh: {
+    names: ["Chieftain", "Priest-King", "Pharaoh"],
+    trigger: "endOfRound",
+    text: (n) => `End of round: give every Sci-Fi friend +${n}/+${n}.`,
+    shop: (s, self, n) => {
+      for (const friend of s.friends(self)) if (s.ageOf(friend) === "scifi") s.buff(friend, n, n);
+    },
+  },
+  // The time traveler hands a caveman a laser gun.
+  timetraveler: {
+    names: ["Time Traveler", "Chrononaut", "Time Lord"],
+    trigger: "startOfBattle",
+    text: (n) => `Start of battle: give the front Stone friend +${4 * n} attack.`,
+    battle: (b, self, n) => {
+      const caveman = b.friends(self).find((f) => f.age === "stone");
+      if (caveman) b.buff(caveman, 4 * n, 0);
+    },
+  },
+};
+
+const storyBridges: Variant = {
+  name: "story-bridges",
+  description: "Recruiter → Stone (barbarian auxiliaries), Tourist → Bronze (pyramid tourism), Pharaoh → Sci-Fi (aliens built the pyramids), Time Traveler → Stone (a laser for the caveman)",
+  apply: () => {
+    const before = Object.keys(STORY_BRIDGES).map((id) => {
+      const d = unitDef(id);
+      return { d, saved: { names: d.names, trigger: d.trigger, text: d.text, battle: d.battle, shop: d.shop } };
+    });
+    for (const { d } of before) Object.assign(d, { battle: undefined, shop: undefined }, STORY_BRIDGES[d.id]);
+    return () => before.forEach(({ d, saved }) => Object.assign(d, saved));
+  },
+};
+
 export const VARIANTS: Variant[] = [
   { name: "baseline", description: "Rules as in docs/roster.md", apply: () => () => {} },
   rareOldAges(0.5),
@@ -112,4 +166,5 @@ export const VARIANTS: Variant[] = [
   strongerBridges("bridges-x2", BRIDGES, 2),
   strongerBridges("bridges-x3", BRIDGES, 3),
   strongerBridges("time-traveler-x2", ["timetraveler"], 2),
+  storyBridges,
 ];
