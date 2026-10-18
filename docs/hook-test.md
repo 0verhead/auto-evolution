@@ -18,3 +18,21 @@ Tests 1 and 2 use the utility-scored bot with its two Personalities and run in N
 - Test 1 fails narrowly. In Rounds 9–12 the Mixer wins 54.0% of 1,309 decided battles head to head. Across whole Runs it does a little better than the Purist: 5.44 wins on average against 4.77, and 20.8% of Runs won against 15.4%.
 - Test 2 passes, but the signal is weak. Winning Lines from Round 10+ hold 3.36 Stone, Bronze or Iron Units, and even the Purist's winning Lines hold 1.55 Stone Units. Stone Units are easy to evolve, and a Stage-3 Stone Unit outgrows a fresh Sci-Fi Unit, so "later Ages are stronger" does not fully hold yet.
 - Test 2.5 is inconclusive. In 5 Runs the model player (gpt-6-luna) won 0–5 battles and lost every Run. It never sold a Unit and often ended the shop with gold left, so it kept old Units by never replacing anything rather than by choice.
+
+**2026-10-18, Stone balance variants** (`npm run compare 1000 5`, 5 seeds each):
+
+| Variant | Test 1 Mixer head to head (min–max) | Test 2 old Units | Purist Stone Units in late winners |
+|---|---|---|---|
+| baseline | 53.9% (51.7–55.5%) | 3.33 | 1.55 |
+| Old Ages at 0.5× shop odds | 54.1% (51.2–58.1%) | 3.21 | 1.32 |
+| Old Ages at 0.25× shop odds | 53.2% (51.9–54.6%) | 3.09 | 1.16 |
+| Weaker Stone (−1 from each Stone Unit's higher stat) | 52.3% (49.2–54.1%) | 3.28 | 1.34 |
+| Both | 51.6% (49.5–53.8%) | 3.19 | 1.15 |
+
+Neither change moves test 1. Both reduce Stone in the Purist's winning Lines, but the Mixer relies on Stone too, so its head-to-head rate stays the same or drops. Stone was not the main lever.
+
+**2026-10-18, model player with fuller context** (`npm run model-play 6 301`, with and without `--preview`):
+
+- Fuller rules, the last 3 battles, the actions taken this Round and a scouting estimate barely helped: 1–4 wins per Run, no Run won.
+- With `--preview` (every action shows the Line's estimated win rate against 30 of this Round's Ghosts), it won 3 of 6 Runs, against about 20% for the bots. Its winning Lines from Round 10+ held 5.00 Stone, Bronze or Iron Units and no Modern or Sci-Fi Unit. It never sold a Unit. It won by growing Bronze Units (a Chief Scribe at 31/11, a Pyramid Builder at 11/29) behind Stone ones.
+- With previews the model plays close to a battle oracle, so this result is about the rules more than about the model. Bronze's Patience grows without limit and beats later Ages, the opposite of the hook's "old Units support new ones".

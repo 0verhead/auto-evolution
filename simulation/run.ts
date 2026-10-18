@@ -1,6 +1,6 @@
 // One Run: shop phases and battles, with SAP's numbers (Q6 in the design grilling).
 import { battle, type BattleResult } from "./battle";
-import { createRng, pick, seedFrom, type Rng } from "./rng";
+import { createRng, pick, seedFrom, weightedPick, type Rng } from "./rng";
 import { INVENTIONS, UNITS, inventionDef, unitDef } from "./roster";
 import { LINE_SIZE, type Line, type ShopApi, type Unit } from "./types";
 import { MAX_EXP, ageIndex, ageOfUnit, freshUnit, latestAgeIndex, stageOf } from "./units";
@@ -11,6 +11,12 @@ export const INVENTION_PRICE = 3;
 export const REROLL_PRICE = 1;
 export const START_LIVES = 5;
 export const WINS_TO_WIN = 10;
+
+/** Tunable shop odds, changed by balance experiments (scripts/variants.ts). */
+export const shopRules = {
+  /** Weight of Units from an Age two or more behind the latest one (1 = as likely as any other Unit, as in SAP). */
+  oldAgeWeight: 1,
+};
 
 export interface ShopUnit {
   def: string;
@@ -271,7 +277,10 @@ function rollShop(run: Run): void {
   const unitPool = UNITS.filter((u) => !u.token && ageIndex(u.age) <= latest);
   const inventionPool = INVENTIONS.filter((i) => ageIndex(i.age) <= latest);
   run.shopUnits = run.shopUnits.filter((s) => s.frozen);
-  while (run.shopUnits.length < unitSlots(run.round)) run.shopUnits.push(offerUnit(run, pick(run.rng, unitPool)!.id, UNIT_PRICE));
+  const weight = (u: (typeof unitPool)[number]) => (ageIndex(u.age) <= latest - 2 ? shopRules.oldAgeWeight : 1);
+  while (run.shopUnits.length < unitSlots(run.round)) {
+    run.shopUnits.push(offerUnit(run, weightedPick(run.rng, unitPool, weight)!.id, UNIT_PRICE));
+  }
   run.shopInventions = run.shopInventions.filter((s) => s.frozen);
   while (run.shopInventions.length < inventionSlots(run.round)) {
     run.shopInventions.push({ def: pick(run.rng, inventionPool)!.id, price: INVENTION_PRICE, frozen: false });
