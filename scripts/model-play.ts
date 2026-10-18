@@ -1,49 +1,88 @@
 // Test 2.5 from docs/hook-test.md: a model player (OpenAI Decisions API) plays Runs against saved Ghosts.
 // It is told only to win, never about mixing Ages. Needs OPENAI_API_KEY in the environment.
-//   npm run model-play [runs] [seed]
+//   npm run model-play [runs] [seed] [--preview]
+// --preview adds each action's estimated win rate against this Round's Ghosts to its description.
 import { mkdirSync, writeFileSync } from "node:fs";
-import { createRng } from "../simulation/rng";
+import { battle } from "../simulation/battle";
+import type { Ghost } from "../simulation/league";
+import { createRng, sample, seedFrom } from "../simulation/rng";
 import { inventionDef, unitDef } from "../simulation/roster";
 import { act, legalActions, newRun, resolveBattle, type Action, type Run } from "../simulation/run";
-import { AGE_NAMES, AGES } from "../simulation/types";
+import { AGE_NAMES, AGES, type Line } from "../simulation/types";
 import { latestAgeIndex, stageOf, unitName } from "../simulation/units";
 import { formatEvents, formatLine } from "./format";
 import { ghostFor, loadGhosts } from "./ghosts";
 
 const MODEL = "gpt-6-luna";
 const MAX_ACTIONS_PER_ROUND = 25;
+const SCOUTED_GHOSTS = 30;
+const HISTORY_ROUNDS = 3;
 
 const RULES = `You are playing Auto Evolution, an auto-battler like Super Auto Pets. Win 10 battles before you lose 5 lives.
-Each Round you get 10 gold to spend in the shop, then your Line of up to 5 Units fights another player's saved Line automatically.
-Units cost 3 gold, Inventions 3 gold, a reroll 1 gold. Unspent gold is lost when the shop phase ends.
-Buying a copy of a Unit you own merges it: +1/+1 and experience. 3 copies make Stage 2, 6 copies Stage 3; abilities get stronger by Stage.
-Selling refunds 1 gold per Stage. Slot 1 is the front of the Line; the two front Units hit each other at the same time until one side is empty.
-Battle damage and Armor reset after each battle; bought stats are permanent. A new historical Age unlocks every 2 Rounds: Stone, Bronze, Iron, Modern, Sci-Fi.`;
 
-const runs = Number(process.argv[2] ?? 3);
-const seed = Number(process.argv[3] ?? 1);
+Run: each Round has a shop phase, then your Line fights another player's saved Line from the same Round automatically. A win adds 1 win, a loss costs 1 life, a draw changes nothing. If you lost any lives in Rounds 1–2 you get 1 back at the start of Round 3.
+
+Shop: you get 10 gold each Round and unspent gold is lost when the shop phase ends. Units cost 3 gold (some stocked Units cost less), Inventions cost 3 gold, a reroll costs 1 gold and replaces every Unit and Invention that is not frozen. Frozen offers stay for the next Round. The shop offers 3 Units (4 from Round 5, 5 from Round 9) and 1 Invention (2 from Round 3), drawn from every Age unlocked so far.
+
+Line: 5 slots, slot 1 is the front. To buy a new Unit you need an empty slot, so with a full Line you must sell a Unit first. Selling refunds 1 gold per Stage. Swapping is free.
+
+Evolving: buying or merging a copy of a Unit you own gives it +1/+1 (from the higher stats of the two) and 1 experience. 3 copies make Stage 2, 6 copies make Stage 3, and every Stage-up adds a Unit from the next Age to the shop. Abilities get stronger by Stage.
+
+Ages: Stone in Rounds 1–2, Bronze from Round 3, Iron from Round 5, Modern from Round 7, Sci-Fi from Round 9. Units of later Ages have higher base stats. Older Units stay in the shop.
+
+Battle: start-of-battle abilities trigger first, highest attack first. Then the two front Units hit each other at the same time, a Unit at 0 health faints and the Units behind move up, until one side is empty. Armor absorbs damage before health. Battle damage, Armor, summoned Cousins and "until end of battle" buffs vanish after the battle; stats gained in the shop are permanent.
+
+Ability timing: "End of round" abilities trigger when you end the shop phase, before the battle. "Start of round" abilities trigger when the next shop opens. "Buy" abilities trigger when you buy a Unit.`;
+
+const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+const preview = process.argv.includes("--preview");
+const runs = Number(args[0] ?? 3);
+const seed = Number(args[1] ?? 1);
 const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
 const ghosts = loadGhosts();
 mkdirSync("out/model", { recursive: true });
 
+interface Played {
+  round: number;
+  line: Line;
+  ghost: Line;
+  outcome: string;
+}
+
 const results = await Promise.all(Array.from({ length: runs }, (_, i) => playRun(seed + i)));
-console.log("\nSummary");
-for (const r of results) console.log(`  seed ${r.seed}: ${r.phase} with ${r.wins} wins, ${r.lives} lives after ${r.rounds} Rounds, ${r.calls} decisions`);
+console.log(`\nSummary (${preview ? "with" : "without"} action previews)`);
+for (const r of results) {
+  console.log(`  seed ${r.seed}: ${r.phase} with ${r.wins} wins, ${r.lives} lives after ${r.rounds} Rounds, ${r.calls} decisions, ${r.sells} sells, ${r.wastedGold} gold left unspent`);
+}
+const late = results.flatMap((r) => r.history.filter((h) => h.round >= 10 && h.outcome === "win"));
+const oldUnits = late.reduce((s, h) => s + h.line.filter((u) => u && ["stone", "bronze", "iron"].includes(unitDef(u.def).age)).length, 0);
+const ages = late.reduce((s, h) => s + new Set(h.line.filter((u) => u !== null).map((u) => unitDef(u.def).age)).size, 0);
+if (late.length > 0) {
+  console.log(`  ${late.length} won battles from Round 10+: ${(oldUnits / late.length).toFixed(2)} Stone/Bronze/Iron Units and ${(ages / late.length).toFixed(2)} distinct Ages per Line`);
+}
+writeFileSync(`out/model/summary-${preview ? "preview" : "plain"}-${seed}.json`, JSON.stringify(results, null, 2));
 
 async function playRun(runSeed: number) {
   const rng = createRng(runSeed);
   const log: string[] = [];
+  const history: Played[] = [];
   let run = newRun(runSeed);
-  let calls = 0;
+  let calls = 0, sells = 0, wastedGold = 0;
   while (run.phase === "shop") {
     log.push(`— Round ${run.round} · ${run.lives} lives · ${run.wins} wins`);
+    const scouts = sample(rng, ghostsFor(run.round), SCOUTED_GHOSTS);
+    const taken: string[] = [];
     for (let i = 0; i < MAX_ACTIONS_PER_ROUND && run.phase === "shop"; i++) {
       const actions = legalActions(run);
-      const choice = await decide(run, actions);
+      const choice = await decide(run, actions, scouts, history, taken);
       calls++;
       const action = actions[choice.index]!;
-      log.push(`  ${describe(run, action)}  (confidence ${choice.confidence.toFixed(2)})`);
+      const text = describe(run, action);
+      log.push(`  ${text}  (confidence ${choice.confidence.toFixed(2)})`);
+      taken.push(text);
+      if (action.type === "sell") sells++;
+      if (action.type === "endShop") wastedGold += run.gold;
       run = act(run, action);
     }
     if (run.phase === "shop") run = act(run, { type: "endShop" });
@@ -51,24 +90,56 @@ async function playRun(runSeed: number) {
     log.push(`  line: ${formatLine(run.line)}`, `  vs ${ghost.personality} Ghost: ${formatLine(ghost.line)}`);
     const fought = resolveBattle(run, ghost.line);
     log.push(...formatEvents(fought.result.events).filter((l) => l.startsWith("  →")));
+    history.push({ round: run.round, line: run.line.map((u) => (u ? { ...u } : null)), ghost: ghost.line, outcome: fought.result.outcome });
     run = fought.run;
-    console.log(`seed ${runSeed} Round ${run.round - (run.phase === "shop" ? 1 : 0)}: ${fought.result.outcome} (${run.wins} wins, ${run.lives} lives)`);
+    console.log(`seed ${runSeed} Round ${history.at(-1)!.round}: ${fought.result.outcome} (${run.wins} wins, ${run.lives} lives)`);
   }
   log.push(`Run ${run.phase} with ${run.wins} wins and ${run.lives} lives after ${run.round} Rounds`);
-  writeFileSync(`out/model/run-${runSeed}.log`, log.join("\n"));
-  return { seed: runSeed, phase: run.phase, wins: run.wins, lives: run.lives, rounds: run.round, calls };
+  writeFileSync(`out/model/run-${runSeed}${preview ? "-preview" : ""}.log`, log.join("\n"));
+  return { seed: runSeed, phase: run.phase, wins: run.wins, lives: run.lives, rounds: run.round, calls, sells, wastedGold, history };
 }
 
-async function decide(run: Run, actions: Action[]): Promise<{ index: number; confidence: number }> {
+function ghostsFor(round: number): Ghost[] {
+  const last = Math.max(...ghosts.keys());
+  return ghosts.get(Math.min(round, last))!;
+}
+
+/** Share of scouted Ghosts this Line beats (draws count half), with end-of-round abilities applied first. */
+function scout(run: Run, scouts: Ghost[]): number {
+  const ready = run.phase === "shop" ? act(run, { type: "endShop" }) : run;
+  const rng = createRng(run.round);
+  let score = 0;
+  for (const g of scouts) {
+    const outcome = battle(ready.line, g.line, seedFrom(rng)).outcome;
+    score += outcome === "win" ? 1 : outcome === "draw" ? 0.5 : 0;
+  }
+  return score / Math.max(1, scouts.length);
+}
+
+async function decide(run: Run, actions: Action[], scouts: Ghost[], history: Played[], taken: string[]): Promise<{ index: number; confidence: number }> {
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
+  const context = [
+    RULES,
+    describeState(run),
+    `Scouting: your Line as it stands would beat about ${pct(scout(run, scouts))} of ${scouts.length} typical opponents for this Round.`,
+    history.length > 0
+      ? ["Your last battles:", ...history.slice(-HISTORY_ROUNDS).map((h) => `  Round ${h.round}, ${h.outcome}: ${formatLine(h.line)}  vs  ${formatLine(h.ghost)}`)].join("\n")
+      : "",
+    taken.length > 0 ? ["Actions you have taken this Round:", ...taken.map((t) => `  ${t}`)].join("\n") : "",
+  ].filter((part) => part !== "");
   const body = {
     model: MODEL,
-    input: `${RULES}\n\n${describeState(run)}`,
+    input: context.join("\n\n"),
     questions: [
       {
         type: "choice",
         name: "action",
-        instructions: "Which shop action gives you the best chance of winning this Run? Choose end_shop when you are done for this Round.",
-        choices: actions.map((a, i) => ({ value: a.type === "endShop" ? "end_shop" : `a${i}`, description: describe(run, a) })),
+        instructions: "Which shop action gives you the best chance of winning this Run, thinking about this Round's battle and the Rounds after it? Choose end_shop when you are done for this Round.",
+        choices: actions.map((a, i) => {
+          let description = describe(run, a);
+          if (preview && a.type !== "freeze" && a.type !== "reroll") description += ` (Line would then beat about ${pct(scout(act(run, a), scouts))})`;
+          return { value: a.type === "endShop" ? "end_shop" : `a${i}`, description };
+        }),
       },
     ],
   };

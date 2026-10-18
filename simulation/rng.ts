@@ -23,6 +23,16 @@ export function pick<T>(rng: Rng, items: readonly T[]): T | undefined {
   return items.length === 0 ? undefined : items[int(rng, items.length)];
 }
 
+export function weightedPick<T>(rng: Rng, items: readonly T[], weight: (item: T) => number): T | undefined {
+  const total = items.reduce((sum, item) => sum + weight(item), 0);
+  let roll = next(rng) * total;
+  for (const item of items) {
+    roll -= weight(item);
+    if (roll < 0) return item;
+  }
+  return items[items.length - 1];
+}
+
 export function sample<T>(rng: Rng, items: readonly T[], count: number): T[] {
   const pool = [...items];
   const out: T[] = [];
