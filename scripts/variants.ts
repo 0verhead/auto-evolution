@@ -80,6 +80,26 @@ const patienceCapped = patience("patience-cap-10", `Each Bronze Unit gives at mo
 
 const patienceFlat = patience("patience-flat", "Bronze End of round abilities give +1 at every Stage instead of +1 / +2 / +3", (original) => (s, self, _n, subject) => original(s, self, 1, subject));
 
+const BRIDGES = ["gatherer", "pharaoh", "recruiter", "salesman", "timetraveler"];
+
+/** Multiplies a Bridge Unit's effect by running its ability as if its Stage were `factor` times higher. */
+function strongerBridges(name: string, ids: string[], factor: number): Variant {
+  return {
+    name,
+    description: `${ids.length === BRIDGES.length ? "Every Bridge Unit's" : ids.map((id) => unitDef(id).names[0]).join(", ") + "'s"} effect ×${factor}`,
+    apply: () => {
+      const defs = ids.map(unitDef);
+      const originals = defs.map((d) => ({ battle: d.battle, shop: d.shop }));
+      for (const d of defs) {
+        const { battle, shop } = d;
+        if (battle) d.battle = (b, self, n, subject) => battle(b, self, (n * factor) as typeof n, subject);
+        if (shop) d.shop = (api, self, n, subject) => shop(api, self, (n * factor) as typeof n, subject);
+      }
+      return () => defs.forEach((d, i) => Object.assign(d, originals[i]));
+    },
+  };
+}
+
 export const VARIANTS: Variant[] = [
   { name: "baseline", description: "Rules as in docs/roster.md", apply: () => () => {} },
   rareOldAges(0.5),
@@ -89,4 +109,7 @@ export const VARIANTS: Variant[] = [
   patienceEveryOther,
   patienceCapped,
   patienceFlat,
+  strongerBridges("bridges-x2", BRIDGES, 2),
+  strongerBridges("bridges-x3", BRIDGES, 3),
+  strongerBridges("time-traveler-x2", ["timetraveler"], 2),
 ];

@@ -60,3 +60,9 @@ Neither change moves test 1. Both reduce Stone in the Purist's winning Lines, bu
 - The Patience cap makes no measurable difference, so the cards stay uncapped.
 - Test 1 still fails. Across the simple bots, the scouting bots and every variant, a bias towards mixing is worth only 2–4 points head to head (50–54%), never 55%.
 - The Scout, which is never told about Ages, keeps 3.69 old Units and 3 different Ages in its winning Lines from Round 10+. Mixed Lines happen without anyone aiming for them; deliberately mixing more gains little on top.
+
+**2026-10-19, stronger Bridges and a direct look at mixing** (`npm run compare 1000 5 --only=baseline,bridges-x2,bridges-x3,time-traveler-x2`, plus Round 9–12 Ghosts from 3 leagues of 1,000 simple-bot Runs per variant):
+
+- Stronger Bridges don't move test 1: 53.9% (×2), 51.7% (×3), 53.0% (Time Traveler ×2), against 53.9% unchanged.
+- Test 1 can't measure mixing, because the Purist isn't pure. In Rounds 9–12, 98% of all Lines hold 3 or more Ages and 67% hold 4 or 5. With 3 Units per Age and a shop that draws from every unlocked Age, a single-Age Line is almost impossible to build, so mixing happens whether a player aims for it or not.
+- Measured directly, more mixing doesn't win more. The Line with one more Age wins 50.4% of decided battles, and with two or more extra Ages 51.7%. With Bridges ×2 the figures are 51.1% and 48.6%, and with ×3 they are 50.2% and 45.9%. A Bridge rewards having friends from other Ages, which nearly every Line already has.
