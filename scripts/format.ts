@@ -17,8 +17,9 @@ export function formatShop(run: Run): string {
 }
 
 export function formatEvents(events: BattleEvent[]): string[] {
-  return events.map((e) => {
+  return events.flatMap((e) => {
     switch (e.type) {
+      case "start": return [];
       case "attack": return `  ${e.label}`;
       case "hurt": return `    ${e.label} takes ${e.damage}${e.absorbed ? ` (${e.absorbed} absorbed)` : ""}`;
       case "ability": return `    ✨ ${e.label}: ${e.text}`;

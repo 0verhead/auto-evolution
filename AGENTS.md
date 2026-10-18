@@ -20,4 +20,10 @@ Single-context: use the root `CONTEXT.md` and `docs/adr/`. See `docs/agents/doma
 
 ## Verification
 
-There is no automated test suite. Verify changes by playing the game: run the simulation (`npm run play`, `npm run hook`) and read the battles and Runs it prints.
+There is no automated test suite. Verify changes by playing the game: open the browser game (`npm run dev`, then `?seed=123` for a reproducible Run), and run the simulation (`npm run play`, `npm run hook`, `npm run compare`) and read the battles and Runs it prints.
+
+## Layout
+
+- `simulation/` holds every rule (shop, battle, bot) and never imports Phaser (ADR 0004).
+- `game/` is the Phaser 4 browser game; it only plays back battle events and forwards input.
+- `scripts/` holds the hook test, balance variants and the model player.
