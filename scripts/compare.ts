@@ -1,17 +1,21 @@
-// Compares balance variants over several seeds: npm run compare [runs] [seeds]
+// Compares balance variants over several seeds: npm run compare [runs] [seeds] [--scout] [--only=a,b]
 import { measure } from "./measure";
 import { VARIANTS } from "./variants";
 
-const runs = Number(process.argv[2] ?? 1000);
-const seeds = Number(process.argv[3] ?? 5);
+const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+const scouting = process.argv.includes("--scout");
+const only = process.argv.find((a) => a.startsWith("--only="))?.slice("--only=".length).split(",");
+const variants = only ? VARIANTS.filter((v) => only.includes(v.name)) : VARIANTS;
+const runs = Number(args[0] ?? 1000);
+const seeds = Number(args[1] ?? 5);
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
 
-console.log(`${runs} Runs × ${seeds} seeds per variant\n`);
-console.log("variant          | test 1 Mixer h2h (min–max) | test 2 old Units | Purist Stone in late winners | avg wins P / M | Runs won P / M");
-for (const variant of VARIANTS) {
+console.log(`${runs} Runs × ${seeds} seeds per variant${scouting ? ", scouting bots" : ""}\n`);
+console.log("variant          | test 1 Mixer h2h (min–max) | test 2 old Units | Purist Stone in late winners | avg wins P / M | Runs won P / M" + (scouting ? " | Scout: Runs won, old Units, Ages in late winners" : ""));
+for (const variant of variants) {
   const restore = variant.apply();
-  const ms = Array.from({ length: seeds }, (_, i) => measure(runs, i + 1));
+  const ms = Array.from({ length: seeds }, (_, i) => measure(runs, i + 1, scouting));
   restore();
   const h2h = ms.map((m) => m.mixerHeadToHead);
   console.log(
@@ -22,8 +26,13 @@ for (const variant of VARIANTS) {
       mean(ms.map((m) => m.purist.lateWinnerAges.stone)).toFixed(2).padEnd(28),
       `${mean(ms.map((m) => m.purist.avgWins)).toFixed(2)} / ${mean(ms.map((m) => m.mixer.avgWins)).toFixed(2)}`.padEnd(14),
       `${pct(mean(ms.map((m) => m.purist.runsWon)))} / ${pct(mean(ms.map((m) => m.mixer.runsWon)))}`,
+      ...(scouting
+        ? [
+            `${pct(mean(ms.map((m) => m.scout!.runsWon)))}, ${mean(ms.map((m) => m.scout!.lateWinnerAges.stone + m.scout!.lateWinnerAges.bronze + m.scout!.lateWinnerAges.iron)).toFixed(2)}, ${mean(ms.map((m) => m.scout!.lateWinnerDistinctAges)).toFixed(2)}`,
+          ]
+        : []),
     ].join(" | "),
   );
 }
 console.log("");
-for (const v of VARIANTS) console.log(`${v.name}: ${v.description}`);
+for (const v of variants) console.log(`${v.name}: ${v.description}`);

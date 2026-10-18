@@ -49,3 +49,14 @@ Neither change moves test 1. Both reduce Stone in the Purist's winning Lines, bu
 | at most +10 per Bronze Unit | 3 of 6 | 3.65 | 3.06 |
 
 - Its winning Lines now look like the hook: a Sci-Fi Cyborg and Time Traveler at the front, with Stone (Tribe Mother, Caveman) and Bronze (Brick Carrier) Units supporting them. The +10 cap kept the win rate and reduced old Units a little. Six Runs per variant are too few to rank the variants; these results show behaviour, not a significant difference.
+
+**2026-10-18, scouting bots** (`npm run compare 1000 3 --scout --only=…`): the bots now preview their 8 best options and any rearrangement in battles against 8 Ghosts from the same Round, taken from a league of the simple bots. A third Personality, the Scout, plays only to win, with no Age bias.
+
+| Variant | Test 1 Mixer head to head (min–max) | Test 2 old Units | Runs won Purist / Mixer / Scout | Scout's late winning Lines: old Units, Ages |
+|---|---|---|---|---|
+| baseline | 52.1% (51.3–52.8%) | 3.46 | 18.5% / 18.8% / 14.6% | 3.69, 3.07 |
+| at most +10 per Bronze Unit | 53.2% (52.1–54.0%) | 3.42 | 16.3% / 19.0% / 15.5% | 3.63, 3.05 |
+
+- The Patience cap makes no measurable difference, so the cards stay uncapped.
+- Test 1 still fails. Across the simple bots, the scouting bots and every variant, a bias towards mixing is worth only 2–4 points head to head (50–54%), never 55%.
+- The Scout, which is never told about Ages, keeps 3.69 old Units and 3 different Ages in its winning Lines from Round 10+. Mixed Lines happen without anyone aiming for them; deliberately mixing more gains little on top.
