@@ -22,6 +22,10 @@ _Avoid_: Team, board, army, lineup
 A saved Line from a particular Round that another player fights asynchronously. A real player or a bot can create it, and the game treats both the same.
 _Avoid_: Opponent team, enemy, AI team
 
+**Personality**:
+A bot's set of priorities when it plays the shop. The Purist favours the newest Age, and the Mixer favours a Line with many different Ages.
+_Avoid_: Difficulty, AI level, strategy
+
 ### Units and progression
 
 **Unit**:
@@ -35,6 +39,20 @@ _Avoid_: Era, tier, epoch
 **Specialty**:
 The one kind of effect an Age's Units are best at, taken from what that Age is famous for in history: Numbers (Stone), Patience (Bronze), Formation (Iron), Industry (Modern), Rule-breaking (Sci-Fi).
 _Avoid_: Trait, synergy, class
+
+**Ability**:
+A Unit's single "Trigger: effect" sentence, written on its card in the style of Super Auto Pets. Any condition lives in the ability's own text, never in a game-wide rule.
+
+**Bridge Unit**:
+A Unit whose ability is filtered on friends or enemies "from a different Age". It carries the "old serves new" hook.
+_Avoid_: Synergy unit, combo unit
+
+**Counterpart**:
+The Super Auto Pets pet, from the tier that arrives in the same Round as a Unit's Age, whose base stats the Unit borrows because its ability is similar, or, when that tier has no similar ability, similarly strong. Stone matches SAP tier 1, and so on up to Sci-Fi at tier 5.
+
+**Cousin**:
+A token Unit that Stone abilities summon during battle. It has no Stage and is gone after the battle.
+_Avoid_: Token, summon, minion
 
 **Evolve**:
 To move a Unit to its next Stage by merging duplicate copies into it. The Unit stays in its Age, and its ability keeps the same idea with stronger numbers.
