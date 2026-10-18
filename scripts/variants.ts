@@ -236,6 +236,42 @@ function biggerRoster(copies: number): Variant {
   };
 }
 
+/** Later Ages take SAP's late-game effects, which scale or affect the whole team. */
+const SAP_LATE_EFFECTS: Record<string, Ability> = {
+  // SAP's Monkey (tier 5): the factory supplies the front line.
+  worker: {
+    names: ["Factory Worker", "Foreman", "Industrialist"],
+    trigger: "endOfRound",
+    text: (n) => `End of round: give the front friend +${2 * n}/+${3 * n}.`,
+    shop: (s, self, n) => {
+      const front = s.friends(self)[0];
+      if (front) s.buff(front, 2 * n, 3 * n);
+    },
+  },
+  // SAP's Mammoth (tier 6), with the Bridge filter: his last act brings future technology to everyone from the past.
+  timetraveler: {
+    names: ["Time Traveler", "Chrononaut", "Time Lord"],
+    trigger: "faint",
+    text: (n) => `Faint: give every friend from a different Age +${2 * n}/+${2 * n}.`,
+    battle: (b, self, n) => {
+      for (const friend of b.friends(self)) if (friend.age !== self.age) b.buff(friend, 2 * n, 2 * n);
+    },
+  },
+};
+
+const sapLateEffects: Variant = {
+  name: "sap-late-effects",
+  description: "Factory Worker takes SAP's Monkey (End of round: front friend +2/+3), Time Traveler SAP's Mammoth (Faint: every friend from a different Age +2/+2)",
+  apply: () => {
+    const before = Object.keys(SAP_LATE_EFFECTS).map((id) => {
+      const d = unitDef(id);
+      return { d, saved: { names: d.names, trigger: d.trigger, text: d.text, battle: d.battle, shop: d.shop } };
+    });
+    for (const { d } of before) Object.assign(d, { battle: undefined, shop: undefined }, SAP_LATE_EFFECTS[d.id]);
+    return () => before.forEach(({ d, saved }) => Object.assign(d, saved));
+  },
+};
+
 const storyBridges: Variant = {
   name: "story-bridges",
   description: "Recruiter → Stone (barbarian auxiliaries), Tourist → Bronze (pyramid tourism), Pharaoh → Sci-Fi (aliens built the pyramids), Time Traveler → Stone (a laser for the caveman)",
@@ -279,4 +315,8 @@ export const VARIANTS: Variant[] = [
   biggerRoster(3),
   combined("roster-x3+sap-shift-full", [biggerRoster(3), sapShiftFull]),
   combined("roster-x3+ant+sap-shift-full", [biggerRoster(3), antGatherer, sapShiftFull]),
+  sapLateEffects,
+  combined("late+sap-shift-full+old-0.5", [sapLateEffects, sapShiftFull, rareOldAges(0.5)]),
+  combined("late+ant+sap-shift-full+old-0.5", [sapLateEffects, antGatherer, sapShiftFull, rareOldAges(0.5)]),
+  combined("late+ant+sap-shift-full+old-0.25", [sapLateEffects, antGatherer, sapShiftFull, rareOldAges(0.25)]),
 ];
