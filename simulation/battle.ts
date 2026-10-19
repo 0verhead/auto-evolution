@@ -8,7 +8,7 @@ import { stageOf } from "./units";
 export type Outcome = "win" | "loss" | "draw";
 
 /** A Unit as the renderer needs it. */
-export interface UnitView {
+export interface UnitSnapshot {
   id: number;
   def: string;
   stage: number;
@@ -18,15 +18,15 @@ export interface UnitView {
 }
 
 export type BattleEvent =
-  | { type: "start"; sides: [UnitView[], UnitView[]] }
+  | { type: "start"; sides: [UnitSnapshot[], UnitSnapshot[]] }
   | { type: "ability"; unit: number; label: string; text: string }
   | { type: "attack"; attacker: number; target: number; label: string }
   | { type: "hurt"; unit: number; label: string; damage: number; absorbed: number; health: number; armor: number }
   | { type: "armor"; unit: number; label: string; amount: number; armor: number }
-  | { type: "buff"; unit: number; label: string; attack: number; health: number; view: UnitView }
+  | { type: "buff"; unit: number; label: string; attack: number; health: number; view: UnitSnapshot }
   | { type: "copy"; unit: number; label: string; copied: string }
   | { type: "faint"; unit: number; label: string }
-  | { type: "summon"; unit: number; label: string; side: 0 | 1; at: number; view: UnitView }
+  | { type: "summon"; unit: number; label: string; side: 0 | 1; at: number; view: UnitSnapshot }
   | { type: "end"; outcome: Outcome; runaway: boolean };
 
 export interface BattleResult {
@@ -224,7 +224,7 @@ class Battle implements BattleApi {
   }
 }
 
-function view(unit: BattleUnit): UnitView {
+function view(unit: BattleUnit): UnitSnapshot {
   return { id: unit.id, def: unit.def, stage: unit.stage, attack: unit.attack, health: unit.health, armor: unit.armor };
 }
 

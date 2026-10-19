@@ -1,20 +1,24 @@
 // Plays back a battle from the simulation's event list (ADR 0004: the renderer never decides anything).
 import * as Phaser from "phaser";
-import type { BattleEvent, Outcome, UnitView } from "../simulation/battle";
-import { COLORS } from "./art";
+import type { BattleEvent, Outcome, UnitSnapshot } from "../simulation/battle";
+import { latestAgeIndex } from "../simulation/units";
+import { AGES } from "../simulation/types";
+import { COLORS, FONT_DISPLAY } from "./art";
 import { play } from "./sound";
 import type { Saved } from "./state";
-import { UnitCard, button, floater, text } from "./ui";
+import { InfoCard, UnitView, backdrop, button, chunky, floater, text, unitCardInfo } from "./ui";
 
-const FRONT_X: [number, number] = [570, 710];
-const SPACING = 122;
-const ROW_Y = 330;
+const FRONT_X: [number, number] = [560, 720];
+const SPACING = 118;
+/** Units stand with their feet on this line. */
+const FEET_Y = 420;
+const SIZE = 112;
 const OUTCOME_SOUND = { win: "victory", loss: "defeat", draw: "draw" } as const;
 
 interface Shown {
-  card: UnitCard;
+  card: UnitView;
   side: 0 | 1;
-  view: UnitView;
+  view: UnitSnapshot;
 }
 
 export class BattleScene extends Phaser.Scene {
@@ -27,6 +31,7 @@ export class BattleScene extends Phaser.Scene {
   private step = 0;
   private speed = 1;
   private banner!: Phaser.GameObjects.Text;
+  private info!: InfoCard;
   private resultShown = false;
 
   constructor() {
@@ -46,12 +51,14 @@ export class BattleScene extends Phaser.Scene {
   }
 
   create(): void {
-    text(this, 640, 40, `Round ${this.round} — battle`, 26, COLORS.text, "800");
-    text(this, 330, 110, "You", 20, COLORS.muted);
-    text(this, 950, 110, "Ghost", 20, COLORS.muted);
-    this.banner = text(this, 640, 170, "", 18, COLORS.text, "600").setWordWrapWidth(900).setAlign("center");
-    button(this, 1040, 672, "Faster ▶▶", () => (this.speed = this.speed === 1 ? 3 : 1), true, 170);
-    button(this, 1200, 672, "Skip", () => this.finish(), true, 120);
+    backdrop(this, AGES[latestAgeIndex(this.round)]!);
+    text(this, 640, 34, `Round ${this.round}`, 30, COLORS.text, "900", FONT_DISPLAY).setStroke("#1c1410", 5);
+    chunky(this, 330, 150, "You", 26);
+    chunky(this, 950, 150, "Ghost", 26);
+    this.banner = text(this, 640, 220, "", 18, COLORS.text, "700").setWordWrapWidth(900).setAlign("center").setBackgroundColor("#1c1410cc").setPadding(14, 6, 14, 6).setVisible(false);
+    this.info = new InfoCard(this);
+    button(this, 1030, 668, "Faster ▶▶", () => (this.speed = this.speed === 1 ? 3 : 1), true, 180);
+    button(this, 1190, 668, "Skip", () => this.finish(), true, 120);
     this.next();
   }
 
@@ -71,17 +78,17 @@ export class BattleScene extends Phaser.Scene {
         return 500;
       case "ability": {
         const s = this.shown.get(e.unit);
-        this.banner.setText(`${e.label.slice(1).replace(/\(.*\)$/, "")}: ${e.text}`);
+        this.banner.setText(`${e.label.slice(1).replace(/\(.*\)$/, "")}: ${e.text}`).setVisible(true);
         play(this, "ability");
-        if (s) this.tweens.add({ targets: s.card, scale: 1.15, yoyo: true, duration: 160 / this.speed });
+        if (s) this.tweens.add({ targets: s.card.figure, scale: s.card.figure.scale * 1.15, yoyo: true, duration: 160 / this.speed });
         return 450;
       }
       case "attack": {
-        this.banner.setText("");
+        this.banner.setVisible(false);
         play(this, "attack");
         for (const [id, dir] of [[e.attacker, 1], [e.target, -1]] as const) {
           const s = this.shown.get(id);
-          if (s) this.tweens.add({ targets: s.card, x: s.card.x + 36 * dir, yoyo: true, duration: 130 / this.speed });
+          if (s) this.tweens.add({ targets: s.card, x: s.card.x + 40 * dir, yoyo: true, duration: 130 / this.speed });
         }
         return 320;
       }
@@ -90,7 +97,7 @@ export class BattleScene extends Phaser.Scene {
         if (!s) return 0;
         s.view = { ...s.view, health: e.health, armor: e.armor };
         s.card.setStats(s.view.attack, s.view.health, s.view.armor);
-        floater(this, s.card.x, s.card.y - 60, e.absorbed ? `-${e.damage - e.absorbed} (🛡${e.absorbed})` : `-${e.damage}`, COLORS.health);
+        floater(this, s.card.x, s.card.y - SIZE - 20, e.absorbed ? `-${e.damage - e.absorbed} (🛡${e.absorbed})` : `-${e.damage}`, COLORS.health);
         if (e.absorbed) play(this, "block");
         return 220;
       }
@@ -100,11 +107,11 @@ export class BattleScene extends Phaser.Scene {
         if (!s) return 0;
         if (e.type === "armor") {
           s.view = { ...s.view, armor: e.armor };
-          floater(this, s.card.x, s.card.y - 60, `+${e.amount}🛡`, COLORS.armor);
+          floater(this, s.card.x, s.card.y - SIZE - 20, `+${e.amount}🛡`, COLORS.armor);
           play(this, "armor");
         } else {
           s.view = { ...e.view };
-          floater(this, s.card.x, s.card.y - 60, `+${e.attack}/+${e.health}`, COLORS.good);
+          floater(this, s.card.x, s.card.y - SIZE - 20, `+${e.attack}/+${e.health}`, COLORS.good);
           play(this, "buff");
         }
         s.card.setStats(s.view.attack, s.view.health, s.view.armor);
@@ -112,7 +119,7 @@ export class BattleScene extends Phaser.Scene {
       }
       case "copy": {
         const s = this.shown.get(e.unit);
-        if (s) floater(this, s.card.x, s.card.y - 60, `copies ${e.copied}`, COLORS.armor);
+        if (s) floater(this, s.card.x, s.card.y - SIZE - 20, `copies ${e.copied}`, COLORS.armor);
         return 300;
       }
       case "faint": {
@@ -121,7 +128,7 @@ export class BattleScene extends Phaser.Scene {
         this.shown.delete(e.unit);
         play(this, "faint");
         this.order[s.side] = this.order[s.side]!.filter((id) => id !== e.unit);
-        this.tweens.add({ targets: s.card, alpha: 0, y: s.card.y + 40, duration: 260 / this.speed, onComplete: () => s.card.destroy() });
+        this.tweens.add({ targets: s.card, alpha: 0, angle: s.side === 0 ? -25 : 25, duration: 260 / this.speed, onComplete: () => s.card.destroy() });
         this.layout(s.side);
         return 360;
       }
@@ -138,8 +145,12 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  private place(view: UnitView, side: 0 | 1, at: number): void {
-    const card = new UnitCard(this, this.slotX(side, at), ROW_Y, { def: view.def, stage: view.stage, attack: view.attack, health: view.health, armor: view.armor, width: 112, height: 150 });
+  private place(view: UnitSnapshot, side: 0 | 1, at: number): void {
+    const card = new UnitView(this, this.slotX(side, at), FEET_Y, { def: view.def, stage: view.stage, attack: view.attack, health: view.health, armor: view.armor, size: SIZE, flip: side === 1 });
+    const zone = this.add.zone(0, -SIZE / 2 + 10, SIZE, SIZE + 40).setInteractive();
+    card.add(zone);
+    zone.on("pointerover", () => this.info.show(unitCardInfo(view.def, view.stage), card.x, FEET_Y - SIZE - 110));
+    zone.on("pointerout", () => this.info.hide());
     this.shown.set(view.id, { card, side, view });
     this.order[side]!.splice(at, 0, view.id);
     this.layout(side);
@@ -170,9 +181,9 @@ export class BattleScene extends Phaser.Scene {
     const title = { win: "Victory!", loss: "Defeat", draw: "Draw" }[this.outcome];
     const color = { win: COLORS.good, loss: COLORS.health, draw: COLORS.muted }[this.outcome];
     this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.55).setDepth(80);
-    this.add.rectangle(640, 380, 520, 300, COLORS.panel, 0.97).setStrokeStyle(2, 0x57534e).setDepth(80);
-    text(this, 640, 300, title, 64, color, "900").setDepth(81);
-    text(this, 640, 380, `❤ ${run.lives}   🏆 ${run.wins}/10`, 30, COLORS.text, "800").setDepth(81);
+    this.add.rectangle(640, 380, 520, 300, 0x1c1410, 0.95).setStrokeStyle(3, 0x57534e).setDepth(80);
+    text(this, 640, 300, title, 64, color, "900", FONT_DISPLAY).setStroke("#1c1410", 6).setDepth(81);
+    chunky(this, 640, 380, `❤️ ${run.lives}    🏆 ${run.wins}/10`, 32).setDepth(81);
     const done = run.phase !== "shop";
     button(
       this,
@@ -181,7 +192,8 @@ export class BattleScene extends Phaser.Scene {
       done ? "See the result" : "Back to the shop",
       () => (done ? this.scene.start("end", { saved: this.saved }) : this.scene.start("shop", { saved: this.saved })),
       true,
-      260,
+      280,
+      "primary",
     ).setDepth(81);
   }
 }

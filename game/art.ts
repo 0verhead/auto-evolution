@@ -26,9 +26,18 @@ const ART: Record<string, string> = {
   gene: "🧬",
 };
 
+/** Emoji fallback for art that hasn't been generated or loaded. */
 export function art(id: string, stage = 1): string {
   return ART[`${id}.${stage}`] ?? ART[id] ?? "❔";
 }
+
+/** Texture key of a Unit's art for a Stage (`caveman.2`), or of a single-image subject (`cousin`, `fire`). */
+export function artKey(id: string, stage = 1): string {
+  return SINGLE_IMAGE.has(id) ? id : `${id}.${stage}`;
+}
+
+/** Subjects with one image rather than one per Stage. */
+export const SINGLE_IMAGE = new Set(["cousin", "fire", "beer", "roads", "canned", "gene"]);
 
 export const AGE_COLORS: Record<Age, number> = {
   stone: 0x9ca3af,
@@ -53,3 +62,7 @@ export const COLORS = {
 };
 
 export const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+/** Headings: a classical serif for a serious, historical feel. */
+export const FONT_DISPLAY = '"Cinzel", Georgia, serif';
+/** Numbers and buttons: chunky and rounded, like SAP. */
+export const FONT_CHUNKY = '"Lilita One", "Arial Rounded MT Bold", system-ui, sans-serif';

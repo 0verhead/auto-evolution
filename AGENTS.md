@@ -26,4 +26,10 @@ There is no automated test suite. Verify changes by playing the game: open the b
 
 - `simulation/` holds every rule (shop, battle, bot) and never imports Phaser (ADR 0004).
 - `game/` is the Phaser 4 browser game; it only plays back battle events and forwards input.
-- `scripts/` holds the hook test, balance variants and the model player.
+- `scripts/` holds the hook test, balance variants, the model player and the asset pipelines.
+
+## Assets
+
+- Art (style A: clean cartoon like SAP, serious in tone) is generated with Gemini by `npm run art` (needs `GEMINI_API_KEY`). Characters and items are drawn on magenta and keyed out to transparent WebP; originals stay in `out/art-source` and are not committed. Art is referenced only through art keys (`game/art.ts`), never directly.
+- Sound effects come from Kenney's CC0 packs via `npm run sfx -- <unzipped packs>`; `game/public/sfx/CREDITS.md` lists the sources.
+- API keys come from the environment and are never committed, nor are references to where they are stored.
