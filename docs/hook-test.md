@@ -116,3 +116,14 @@ Neither change moves test 1. Both reduce Stone in the Purist's winning Lines, bu
 No SAP-sourced version brings Stone below about 80%. The Monkey-style Factory Worker often buffs a Stone Unit at the front, which makes old Units stronger still. Only a stat curve beyond SAP's numbers (Iron +1, Modern +3, Sci-Fi +5, old Ages 0.25×) passes.
 
 Measured per Unit instead of per Age, the picture differs. With the Ant Tribe Mother, tiers 1, 2, 4, 5, 6 and old Ages 0.25× (scouting bots, seed 1), no old Unit is in more than 60% of late winning Lines (Caveman 45%, Tribe Mother 49%, Brick Carrier 34%, Legionary 60%). Stone reaches 81% only because it has three Units that each appear about half the time.
+
+**2026-10-19, adopted rules** (Tribe Mother with SAP's Ant effect, Counterparts from SAP tiers 1, 2, 4, 5, 6, old Ages at 0.25× in the shop; test 1 per Unit as above):
+
+| Rules | Simple bots (5 seeds): most kept old Unit; Stone / Bronze / Iron; seeds passing | Scouting bots (3 seeds): same |
+|---|---|---|
+| adopted | Legionary 50%; 77% / 66% / 79%; 5/5 | Legionary 58%; 81% / 57% / 76%; 3/3 |
+| adopted but with SAP's shop odds | Brick Carrier 47%; 93% / 70% / 68%; 5/5 | Tribe Mother 61%; 93% / 64% / 67%; 3/3 |
+
+- Test 1 passes with both bot types in every seed. No old Unit is kept automatically, and every old Age stays in at least half of the late winning Lines.
+- With SAP's shop odds (every unlocked Unit equally likely) test 1 passes too, so making old Ages rarer in the shop isn't needed for it.
+- Test 2.5 (model player with previews, 6 Runs, seeds 301–306): 1 Run won, 4–10 wins in the others. It sold 4–9 Units per Run, and its winning Lines from Round 10+ held 2.60 old Units from 3.67 different Ages. It keeps some old Units and replaces others, and its winning Lines mix Ages.

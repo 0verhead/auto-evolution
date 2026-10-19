@@ -1,4 +1,4 @@
-// The v1 roster from docs/roster.md.
+// The v1 roster from docs/roster.md. Ages take their stats from SAP tiers 1, 2, 4, 5 and 6.
 import type { InventionDef, UnitDef } from "./types";
 
 export const UNITS: UnitDef[] = [
@@ -32,11 +32,12 @@ export const UNITS: UnitDef[] = [
     names: ["Gatherer", "Tribe Mother", "Great Mother"],
     attack: 2,
     health: 2,
-    trigger: "friendFaints",
-    usesPerBattle: 3,
-    text: (n) => `Friend from a different Age faints: summon a ${2 * n}/${2 * n} Cousin. Works 3 times per battle.`,
-    battle: (b, self, n, fainted) => {
-      if (fainted && fainted.age !== self.age) b.summon(self.side, fainted.faintedAt, 2 * n, 2 * n);
+    trigger: "faint",
+    // SAP's Ant with the Bridge filter: her last gift goes to the stranger.
+    text: (n) => `Faint: give a random friend from a different Age +${2 * n}/+${n}.`,
+    battle: (b, self, n) => {
+      const target = b.pick(b.friends(self).filter((f) => f.age !== self.age));
+      if (target) b.buff(target, 2 * n, n);
     },
   },
 
@@ -78,14 +79,14 @@ export const UNITS: UnitDef[] = [
     },
   },
 
-  // Iron: Formation
+  // Iron: Formation (SAP tier 4)
   {
     id: "legionary",
     age: "iron",
     slot: "front",
     names: ["Legionary", "Veteran", "Praetorian"],
-    attack: 1,
-    health: 3,
+    attack: 3,
+    health: 6,
     trigger: "startOfBattle",
     text: (n) => `Start of battle: gain ${3 * n} Armor.`,
     battle: (b, self, n) => b.giveArmor(self, 3 * n),
@@ -95,8 +96,8 @@ export const UNITS: UnitDef[] = [
     age: "iron",
     slot: "back",
     names: ["Shield Bearer", "Centurion", "Legate"],
-    attack: 4,
-    health: 2,
+    attack: 2,
+    health: 5,
     trigger: "startOfBattle",
     text: (n) => `Start of battle: give the friend ahead ${2 * n} Armor.`,
     battle: (b, self, n) => {
@@ -110,7 +111,7 @@ export const UNITS: UnitDef[] = [
     slot: "bridge",
     names: ["Recruiter", "Drillmaster", "General"],
     attack: 1,
-    health: 2,
+    health: 3,
     trigger: "startOfBattle",
     text: (n) => `Start of battle: give every friend from a different Age ${n} Armor.`,
     battle: (b, self, n) => {
@@ -118,14 +119,14 @@ export const UNITS: UnitDef[] = [
     },
   },
 
-  // Modern: Industry
+  // Modern: Industry (SAP tier 5)
   {
     id: "worker",
     age: "modern",
     slot: "front",
     names: ["Factory Worker", "Foreman", "Industrialist"],
-    attack: 2,
-    health: 5,
+    attack: 4,
+    health: 6,
     trigger: "startOfRound",
     text: (n) => `Start of round: stock the shop with a copy of the friend behind. It costs ${3 - n} gold.`,
     shop: (s, self, n) => {
@@ -138,8 +139,8 @@ export const UNITS: UnitDef[] = [
     age: "modern",
     slot: "back",
     names: ["Clerk", "Banker", "Tycoon"],
-    attack: 2,
-    health: 2,
+    attack: 3,
+    health: 4,
     trigger: "startOfRound",
     text: (n) => `Start of round: gain ${n} gold.`,
     shop: (s, _self, n) => s.gainGold(n),
@@ -149,8 +150,8 @@ export const UNITS: UnitDef[] = [
     age: "modern",
     slot: "bridge",
     names: ["Salesman", "Merchant", "Magnate"],
-    attack: 1,
-    health: 3,
+    attack: 3,
+    health: 8,
     trigger: "friendBought",
     text: (n) => `Buy a Unit from a different Age: give it +${n}/+${n}.`,
     shop: (s, self, n, bought) => {
@@ -158,14 +159,14 @@ export const UNITS: UnitDef[] = [
     },
   },
 
-  // Sci-Fi: Rule-breaking
+  // Sci-Fi: Rule-breaking (SAP tier 6)
   {
     id: "cyborg",
     age: "scifi",
     slot: "front",
     names: ["Cyborg", "Battle Mech", "Titan Mech"],
-    attack: 6,
-    health: 9,
+    attack: 7,
+    health: 10,
     trigger: "knockOut",
     text: (n) => `Knock out: deal ${4 * n} damage to the first enemy.`,
     battle: (b, self, n) => {
@@ -178,8 +179,8 @@ export const UNITS: UnitDef[] = [
     age: "scifi",
     slot: "back",
     names: ["AI Core", "Superintelligence", "Singularity"],
-    attack: 1,
-    health: 2,
+    attack: 6,
+    health: 4,
     trigger: "startOfBattle",
     copiesAbilities: true,
     text: (n) => `Start of battle: copy the ability of the friend ahead, at Stage ${n}.`,
@@ -193,8 +194,8 @@ export const UNITS: UnitDef[] = [
     age: "scifi",
     slot: "bridge",
     names: ["Time Traveler", "Chrononaut", "Time Lord"],
-    attack: 2,
-    health: 2,
+    attack: 4,
+    health: 4,
     trigger: "startOfBattle",
     text: (n) => `Start of battle: gain +${n}/+${n} for every friend from a different Age.`,
     battle: (b, self, n) => {

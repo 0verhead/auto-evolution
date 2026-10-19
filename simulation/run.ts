@@ -12,10 +12,13 @@ export const REROLL_PRICE = 1;
 export const START_LIVES = 5;
 export const WINS_TO_WIN = 10;
 
-/** Tunable shop odds, changed by balance experiments (scripts/variants.ts). */
+/** Shop odds; balance experiments (scripts/variants.ts) change them. */
 export const shopRules = {
-  /** Weight of Units from an Age two or more behind the latest one (1 = as likely as any other Unit, as in SAP). */
-  oldAgeWeight: 1,
+  /**
+   * Weight of Units from an Age two or more behind the latest one. SAP offers every unlocked pet equally (1);
+   * here old Units are rarer so that keeping one is a choice rather than automatic (docs/hook-test.md).
+   */
+  oldAgeWeight: 0.25,
 };
 
 export interface ShopUnit {
