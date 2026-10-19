@@ -66,3 +66,9 @@ Neither change moves test 1. Both reduce Stone in the Purist's winning Lines, bu
 - Stronger Bridges don't move test 1: 53.9% (×2), 51.7% (×3), 53.0% (Time Traveler ×2), against 53.9% unchanged.
 - Test 1 can't measure mixing, because the Purist isn't pure. In Rounds 9–12, 98% of all Lines hold 3 or more Ages and 67% hold 4 or 5. With 3 Units per Age and a shop that draws from every unlocked Age, a single-Age Line is almost impossible to build, so mixing happens whether a player aims for it or not.
 - Measured directly, more mixing doesn't win more. The Line with one more Age wins 50.4% of decided battles, and with two or more extra Ages 51.7%. With Bridges ×2 the figures are 51.1% and 48.6%, and with ×3 they are 50.2% and 45.9%. A Bridge rewards having friends from other Ages, which nearly every Line already has.
+
+**2026-10-19, story-based Bridge pairings** (`npm run pairings`, `npm run compare … --only=story-bridges`): Recruiter → Stone (barbarian auxiliaries), Tourist → Bronze (pyramid tourism), Pharaoh → Sci-Fi (aliens built the pyramids), Time Traveler → Stone (a laser for the caveman). The Tribe Mother keeps "from a different Age".
+
+- Test 1 stays at 53.3% (simple bots) and 52.3% (scouting bots), and test 2 at 3.3–3.4.
+- The pairings don't create decisions because their partners are almost always there. Among Round 9–12 Lines of the scouting bots, 99% hold a Stone Unit, 81% a Bronze Unit and 80% a Sci-Fi Unit, so a Bridge's condition is met almost regardless of what the player does.
+- A narrower condition can't fix this while every Line holds nearly every Age. With 3 Units per Age, the shop keeps offering the same 15 Units and every Age ends up in every Line. Ages have to become scarce in a Line before pairing with one is a choice.
