@@ -10,7 +10,9 @@
     "model-play": "tsx scripts/model-play.ts",
     "compare": "tsx scripts/compare.ts",
     "pairings": "tsx scripts/pairings.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "art": "tsx scripts/generate-art.ts",
+    "sfx": "tsx scripts/import-sfx.ts"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

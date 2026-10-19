@@ -4,10 +4,22 @@ import { act, resolveBattle, REROLL_PRICE, type Action } from "../simulation/run
 import { AGE_NAMES, AGES, LINE_SIZE } from "../simulation/types";
 import { MAX_EXP, latestAgeIndex, stageOf } from "../simulation/units";
 import { COLORS, FONT } from "./art";
+import { muted, play, toggleMuted, type Sfx } from "./sound";
 import { ghostFor, save, type Saved } from "./state";
 import { UnitCard, button, inventionCard, text, toast } from "./ui";
 
 type Selection = { kind: "shopUnit" | "shopInvention" | "line"; index: number };
+
+const SOUND_FOR: Record<Action["type"], Sfx> = {
+  buy: "buy",
+  useInvention: "buff",
+  sell: "sell",
+  merge: "merge",
+  swap: "select",
+  reroll: "reroll",
+  freeze: "freeze",
+  endShop: "fight",
+};
 
 /** Slot 1 (the front) is on the right, facing the enemy. */
 const SLOT_X = [1010, 850, 690, 530, 370];
@@ -41,7 +53,10 @@ export class ShopScene extends Phaser.Scene {
     this.layer = this.add.container(0, 0);
     this.render();
     const round = this.saved.run.round;
-    if (round > 1 && round % 2 === 1 && round <= 9) toast(this, `Eureka! The ${AGE_NAMES[AGES[latestAgeIndex(round)]!]} Age begins`, 150);
+    if (round > 1 && round % 2 === 1 && round <= 9) {
+      toast(this, `Eureka! The ${AGE_NAMES[AGES[latestAgeIndex(round)]!]} Age begins`, 150);
+      play(this, "eureka");
+    }
   }
 
   private get run() {
@@ -59,6 +74,8 @@ export class ShopScene extends Phaser.Scene {
     add(text(this, 900, 36, `💰 ${run.gold}`, 26, COLORS.gold, "800"));
     add(text(this, 1040, 36, `❤ ${run.lives}`, 26, COLORS.health, "800"));
     add(text(this, 1170, 36, `🏆 ${run.wins}/10`, 26, COLORS.text, "800"));
+    const sound = add(text(this, 40, 36, muted() ? "🔇" : "🔊", 24));
+    sound.setInteractive({ useHandCursor: true }).on("pointerup", () => sound.setText(toggleMuted() ? "🔇" : "🔊"));
     add(text(this, 690, 96, "Your Line", 18, COLORS.muted));
     add(text(this, 1150, LINE_Y, "front ▶", 18, COLORS.muted));
 
@@ -140,6 +157,7 @@ export class ShopScene extends Phaser.Scene {
       if (this.dragging || this.justDragged) return;
       if (source.kind === "line" && this.selected && !this.isSelected("line", source.index)) return this.onSlot(source.index, "tap");
       this.selected = this.isSelected(source.kind, source.index) ? null : source;
+      if (this.selected) play(this, "select");
       this.render();
     });
     card.on("dragstart", () => {
@@ -192,6 +210,7 @@ export class ShopScene extends Phaser.Scene {
 
   private select(slot: number): void {
     this.selected = { kind: "line", index: slot };
+    play(this, "select");
     this.render();
   }
 
@@ -204,17 +223,23 @@ export class ShopScene extends Phaser.Scene {
     }
     save(this.saved);
     if (!keepSelection) this.selected = null;
+    play(this, SOUND_FOR[action.type]);
     if (action.type === "buy" || action.type === "merge") {
       const slot = action.type === "buy" ? action.slot : action.to;
       const unit = this.run.line[slot]!;
       const was = before.line[slot];
-      if (was && stageOf(unit.exp) > stageOf(was.exp)) toast(this, `Evolved into ${unitDef(unit.def).names[stageOf(unit.exp) - 1]}!`, 150);
+      if (was) play(this, "merge");
+      if (was && stageOf(unit.exp) > stageOf(was.exp)) {
+        toast(this, `Evolved into ${unitDef(unit.def).names[stageOf(unit.exp) - 1]}!`, 150);
+        play(this, "evolve");
+      }
     }
     this.render();
   }
 
   private fail(message: string): void {
     toast(this, message, 150);
+    play(this, "error");
     this.render();
   }
 
@@ -225,6 +250,7 @@ export class ShopScene extends Phaser.Scene {
     const { run: after, result } = resolveBattle(ready, ghost);
     const saved = { ...this.saved, run: after };
     save(saved);
+    play(this, "fight");
     this.scene.start("battle", { saved, events: result.events, outcome: result.outcome, round: ready.round });
   }
 

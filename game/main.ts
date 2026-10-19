@@ -3,6 +3,7 @@ import { BattleScene } from "./BattleScene";
 import { EndScene } from "./EndScene";
 import { ShopScene } from "./ShopScene";
 import { COLORS } from "./art";
+import { loadSounds } from "./sound";
 import { buildGhosts, load, startRun } from "./state";
 import { text } from "./ui";
 
@@ -10,6 +11,10 @@ import { text } from "./ui";
 class BootScene extends Phaser.Scene {
   constructor() {
     super("boot");
+  }
+
+  preload(): void {
+    loadSounds(this);
   }
 
   create(): void {

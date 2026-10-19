@@ -2,12 +2,14 @@
 import * as Phaser from "phaser";
 import type { BattleEvent, Outcome, UnitView } from "../simulation/battle";
 import { COLORS } from "./art";
+import { play } from "./sound";
 import type { Saved } from "./state";
 import { UnitCard, button, floater, text } from "./ui";
 
 const FRONT_X: [number, number] = [570, 710];
 const SPACING = 122;
 const ROW_Y = 330;
+const OUTCOME_SOUND = { win: "victory", loss: "defeat", draw: "draw" } as const;
 
 interface Shown {
   card: UnitCard;
@@ -70,11 +72,13 @@ export class BattleScene extends Phaser.Scene {
       case "ability": {
         const s = this.shown.get(e.unit);
         this.banner.setText(`${e.label.slice(1).replace(/\(.*\)$/, "")}: ${e.text}`);
+        play(this, "ability");
         if (s) this.tweens.add({ targets: s.card, scale: 1.15, yoyo: true, duration: 160 / this.speed });
         return 450;
       }
       case "attack": {
         this.banner.setText("");
+        play(this, "attack");
         for (const [id, dir] of [[e.attacker, 1], [e.target, -1]] as const) {
           const s = this.shown.get(id);
           if (s) this.tweens.add({ targets: s.card, x: s.card.x + 36 * dir, yoyo: true, duration: 130 / this.speed });
@@ -87,6 +91,7 @@ export class BattleScene extends Phaser.Scene {
         s.view = { ...s.view, health: e.health, armor: e.armor };
         s.card.setStats(s.view.attack, s.view.health, s.view.armor);
         floater(this, s.card.x, s.card.y - 60, e.absorbed ? `-${e.damage - e.absorbed} (🛡${e.absorbed})` : `-${e.damage}`, COLORS.health);
+        if (e.absorbed) play(this, "block");
         return 220;
       }
       case "armor":
@@ -96,9 +101,11 @@ export class BattleScene extends Phaser.Scene {
         if (e.type === "armor") {
           s.view = { ...s.view, armor: e.armor };
           floater(this, s.card.x, s.card.y - 60, `+${e.amount}🛡`, COLORS.armor);
+          play(this, "armor");
         } else {
           s.view = { ...e.view };
           floater(this, s.card.x, s.card.y - 60, `+${e.attack}/+${e.health}`, COLORS.good);
+          play(this, "buff");
         }
         s.card.setStats(s.view.attack, s.view.health, s.view.armor);
         return 260;
@@ -112,6 +119,7 @@ export class BattleScene extends Phaser.Scene {
         const s = this.shown.get(e.unit);
         if (!s) return 0;
         this.shown.delete(e.unit);
+        play(this, "faint");
         this.order[s.side] = this.order[s.side]!.filter((id) => id !== e.unit);
         this.tweens.add({ targets: s.card, alpha: 0, y: s.card.y + 40, duration: 260 / this.speed, onComplete: () => s.card.destroy() });
         this.layout(s.side);
@@ -119,6 +127,7 @@ export class BattleScene extends Phaser.Scene {
       }
       case "summon": {
         this.place(e.view, e.side, e.at);
+        play(this, "summon");
         const s = this.shown.get(e.unit)!;
         s.card.setScale(0);
         this.tweens.add({ targets: s.card, scale: 1, duration: 220 / this.speed });
@@ -157,6 +166,7 @@ export class BattleScene extends Phaser.Scene {
     if (this.resultShown) return;
     this.resultShown = true;
     const run = this.saved.run;
+    play(this, OUTCOME_SOUND[this.outcome]);
     const title = { win: "Victory!", loss: "Defeat", draw: "Draw" }[this.outcome];
     const color = { win: COLORS.good, loss: COLORS.health, draw: COLORS.muted }[this.outcome];
     this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.55).setDepth(80);
