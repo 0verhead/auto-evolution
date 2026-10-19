@@ -100,6 +100,49 @@ function strongerBridges(name: string, ids: string[], factor: number): Variant {
   };
 }
 
+/** Sets base stats for some Units, restoring them afterwards. */
+function stats(name: string, description: string, changes: Record<string, [number, number]>): Variant {
+  return {
+    name,
+    description,
+    apply: () => {
+      const before = Object.keys(changes).map((id) => ({ d: unitDef(id), attack: unitDef(id).attack, health: unitDef(id).health }));
+      for (const { d } of before) [d.attack, d.health] = changes[d.id]!;
+      return () => before.forEach((b) => ([b.d.attack, b.d.health] = [b.attack, b.health]));
+    },
+  };
+}
+
+/** Sci-Fi is the last Age, as tier 6 is SAP's, so it takes tier-6 Counterparts: Gorilla, Tiger (also copies the friend ahead) and Fly. */
+const scifiTier6 = stats("scifi-tier6", "Sci-Fi takes SAP tier-6 Counterparts: Cyborg 7/10, AI Core 6/4, Time Traveler 4/4", {
+  cyborg: [7, 10],
+  aicore: [6, 4],
+  timetraveler: [4, 4],
+});
+
+function curve(name: string, extra: Record<string, number>): Variant {
+  const text = Object.entries(extra).map(([age, n]) => `${age} +${n}/+${n}`).join(", ");
+  return stats(
+    name,
+    `Later Ages gain more base stats: ${text}`,
+    Object.fromEntries(UNITS.filter((u) => !u.token && extra[u.age]).map((u) => [u.id, [u.attack + extra[u.age]!, u.health + extra[u.age]!]])),
+  );
+}
+
+const steeperCurve = curve("steeper-curve", { iron: 1, modern: 2, scifi: 3 });
+const steepestCurve = curve("steepest-curve", { iron: 1, modern: 3, scifi: 5 });
+
+function combined(name: string, parts: Variant[]): Variant {
+  return {
+    name,
+    description: parts.map((p) => p.name).join(" + "),
+    apply: () => {
+      const undo = parts.map((p) => p.apply());
+      return () => undo.reverse().forEach((f) => f());
+    },
+  };
+}
+
 type Ability = Pick<UnitDef, "names" | "trigger" | "text" | "battle" | "shop">;
 
 /** Bridges that pair with one specific Age through a story, with the effect following from the story. */
@@ -167,4 +210,10 @@ export const VARIANTS: Variant[] = [
   strongerBridges("bridges-x3", BRIDGES, 3),
   strongerBridges("time-traveler-x2", ["timetraveler"], 2),
   storyBridges,
+  scifiTier6,
+  steeperCurve,
+  combined("scifi-tier6+old-0.25", [scifiTier6, rareOldAges(0.25)]),
+  combined("steeper+old-0.25", [steeperCurve, rareOldAges(0.25)]),
+  combined("steeper+old-0.25+weak-stone", [steeperCurve, rareOldAges(0.25), weakerStone]),
+  combined("steepest+old-0.25", [steepestCurve, rareOldAges(0.25)]),
 ];

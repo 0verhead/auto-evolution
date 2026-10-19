@@ -72,3 +72,17 @@ Neither change moves test 1. Both reduce Stone in the Purist's winning Lines, bu
 - Test 1 stays at 53.3% (simple bots) and 52.3% (scouting bots), and test 2 at 3.3–3.4.
 - The pairings don't create decisions because their partners are almost always there. Among Round 9–12 Lines of the scouting bots, 99% hold a Stone Unit, 81% a Bronze Unit and 80% a Sci-Fi Unit, so a Bridge's condition is met almost regardless of what the player does.
 - A narrower condition can't fix this while every Line holds nearly every Age. With 3 Units per Age, the shop keeps offering the same 15 Units and every Age ends up in every Line. Ages have to become scarce in a Line before pairing with one is a choice.
+
+**2026-10-19, proposed test 1: is keeping an old Unit a choice?** The proposed test 1 asks that each old Age (Stone, Bronze, Iron) appears in 30–70% of winning Lines from Round 10+. Below 30% old Units are dead weight; above 70% keeping them is automatic. The scouting bot now always previews its 4 best replacements as well as its 8 best options, because value alone undervalues replacing an evolved Unit.
+
+| Variant | Simple bots (5 seeds): Stone / Bronze / Iron, seeds passing, test 2 | Scouting bots (3 seeds): Stone / Bronze / Iron, seeds passing, test 2 |
+|---|---|---|
+| baseline | 98% / 86% / 62%, 0/5, 3.33 | 99% / 85% / 42%, 0/3, 3.46 |
+| Sci-Fi with SAP tier-6 Counterparts, old Ages 0.25× | 90% / 79% / 69%, 0/5, 2.86 | 94% / 79% / 42%, 0/3, 2.82 |
+| Iron +1, Modern +2, Sci-Fi +3 | 93% / 70% / 57%, 0/5, 2.68 | 93% / 62% / 44%, 0/3, 2.52 |
+| … and old Ages 0.25× | 80% / 66% / 67%, 0/5, 2.38 | 78% / 58% / 51%, 0/3, 2.14 |
+| … and weaker Stone | 73% / 69% / 69%, 0/5, 2.32 | 72% / 63% / 53%, 0/3, 2.16 |
+| Iron +1, Modern +3, Sci-Fi +5, old Ages 0.25× | 68% / 57% / 55%, 4/5, 1.92 | 64% / 50% / 37%, 3/3, 1.63 |
+
+- Keeping old Units only becomes a choice once later Ages are clearly stronger and old Ages show up less in the shop. Only the steepest curve with rarer old Ages passes, with both bot types.
+- It then fails test 2 narrowly (1.63–1.92 old Units per winning Line instead of at least 2). The two tests pull against each other; the thresholds need a decision.

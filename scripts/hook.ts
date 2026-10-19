@@ -3,7 +3,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { AGE_NAMES, AGES } from "../simulation/types";
 import { ghostsFile } from "./ghosts";
-import { measure, type PersonalityStats } from "./measure";
+import { PRESENCE_RANGE, measure, presencePasses, type PersonalityStats } from "./measure";
 import { VARIANTS } from "./variants";
 
 const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
@@ -26,6 +26,8 @@ if (m.scout) console.log(line("Scout", m.scout));
 
 const pass1 = m.mixerHeadToHead >= 0.55 && m.mixerHeadToHead <= 0.65;
 console.log(`\nTest 1 (mixing pays off): Mixer wins ${(m.mixerHeadToHead * 100).toFixed(1)}% of ${m.decided} decided battles (${m.draws} draws). Pass at 55–65%: ${pass1 ? "PASS" : "FAIL"}`);
+const presence = AGES.map((a) => `${AGE_NAMES[a]} ${(m.latePresence[a] * 100).toFixed(0)}%`).join(", ");
+console.log(`Proposed test 1 (keeping is a choice): late winning Lines holding each Age: ${presence}. Pass with Stone, Bronze and Iron each at ${PRESENCE_RANGE[0] * 100}–${PRESENCE_RANGE[1] * 100}%: ${presencePasses(m) ? "PASS" : "FAIL"}`);
 console.log(`Test 2 (old Units stay): ${m.oldUnitsInLateWinners.toFixed(2)} Stone/Bronze/Iron Units on average in ${m.lateWinners} winning Lines from Round 10+. Pass at ≥ 2: ${m.oldUnitsInLateWinners >= 2 ? "PASS" : "FAIL"}`);
 
 mkdirSync("out", { recursive: true });

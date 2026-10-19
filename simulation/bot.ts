@@ -26,8 +26,9 @@ export const SCOUTING_MIXER: Personality = { ...MIXER, scout: SCOUT_WEIGHT };
 /** Plays only to win: no Age bias at all. */
 export const SCOUT: Personality = { name: "Scout", newest: 0, mixing: 0, scout: SCOUT_WEIGHT };
 
-/** How many of the best options (by value) a scouting bot previews in battle. */
+/** How many of the best options (by value) a scouting bot previews in battle, plus its best replacements. */
 const PREVIEWED_OPTIONS = 8;
+const PREVIEWED_REPLACEMENTS = 4;
 
 const MAX_REROLLS = 3;
 const REPLACE_MARGIN = 2;
@@ -92,13 +93,17 @@ function decideByScouting(run: Run, p: Personality, scouts: Line[]): Action {
       }
     });
   }
-  const ranked = plans
+  // Value alone undervalues replacing an evolved Unit, so the best replacements are always previewed too.
+  const byValue = plans
     .map((plan) => ({ plan, after: plan.reduce(act, run) }))
     .map((x) => ({ ...x, gain: value(x.after, p) - nowValue }))
-    .sort((a, b) => b.gain - a.gain)
-    .slice(0, PREVIEWED_OPTIONS);
+    .sort((a, b) => b.gain - a.gain);
+  const previewed = [
+    ...byValue.filter((x) => x.plan.length === 1).slice(0, PREVIEWED_OPTIONS),
+    ...byValue.filter((x) => x.plan.length === 2).slice(0, PREVIEWED_REPLACEMENTS),
+  ];
   let best: { action: Action; gain: number } | null = null;
-  for (const { plan, after } of ranked) {
+  for (const { plan, after } of previewed) {
     const gain = score(after) - now;
     if (gain > (best?.gain ?? 0)) best = { action: plan[0]!, gain };
   }
