@@ -7,10 +7,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { battle } from "../simulation/battle";
 import type { Ghost } from "../simulation/league";
 import { createRng, sample, seedFrom } from "../simulation/rng";
-import { inventionDef, unitDef } from "../simulation/roster";
-import { act, legalActions, newRun, resolveBattle, type Action, type Run } from "../simulation/run";
+import { UNITS, inventionDef, unitDef } from "../simulation/roster";
+import { act, advancePrice, advanceRules, legalActions, newRun, prosperity, resolveBattle, shopRules, type Action, type Run } from "../simulation/run";
 import { AGE_NAMES, AGES, type Line } from "../simulation/types";
-import { latestAgeIndex, stageOf, unitName } from "../simulation/units";
+import { stageOf, unitName } from "../simulation/units";
 import { formatEvents, formatLine } from "./format";
 import { ghostFor, loadGhosts } from "./ghosts";
 import { VARIANTS } from "./variants";
@@ -20,17 +20,18 @@ const MAX_ACTIONS_PER_ROUND = 25;
 const SCOUTED_GHOSTS = 30;
 const HISTORY_ROUNDS = 3;
 
-const RULES = `You are playing Auto Evolution, an auto-battler like Super Auto Pets. Win 10 battles before you lose 5 lives.
+/** The rules as the model reads them; built after the variant is applied, since variants change prices. */
+const rules = () => `You are playing Auto Evolution, an auto-battler like Super Auto Pets. Win 10 battles before you lose 5 lives.
 
 Run: each Round has a shop phase, then your Line fights another player's saved Line from the same Round automatically. A win adds 1 win, a loss costs 1 life, a draw changes nothing. If you lost any lives in Rounds 1–2 you get 1 back at the start of Round 3.
 
-Shop: you get 10 gold each Round and unspent gold is lost when the shop phase ends. Units cost 3 gold (some stocked Units cost less), Inventions cost 3 gold, a reroll costs 1 gold and replaces every Unit and Invention that is not frozen. Frozen offers stay for the next Round. The shop offers 3 Units (4 from Round 5, 5 from Round 9) and 1 Invention (2 from Round 3), drawn from every Age unlocked so far.
+Shop: you get 10 gold each Round${advanceRules.prosperity > 0 ? `, plus ${advanceRules.prosperity} gold for every Round you have stayed in your current Age (at most +${advanceRules.maxProsperity}, back to +0 when you Advance)` : ""}, and unspent gold is lost when the shop phase ends. Units cost ${AGES.map((a, i) => `${shopRules.unitPriceByAge[i]} (${AGE_NAMES[a]})`).join(", ")} gold by their Age (some stocked Units cost less), Inventions cost 3 gold, a reroll costs 1 gold and replaces every Unit and Invention that is not frozen. Frozen offers stay for the next Round. The shop offers 3 Units (4 from Round 5, 5 from Round 9) and 1 Invention (2 from Round 3), drawn from your current Age and every Age before it.
 
 Line: 5 slots, slot 1 is the front. To buy a new Unit you need an empty slot, so with a full Line you must sell a Unit first. Selling refunds 1 gold per Stage. Swapping is free.
 
-Evolving: buying or merging a copy of a Unit you own gives it +1/+1 (from the higher stats of the two) and 1 experience. 3 copies make Stage 2, 6 copies make Stage 3, and every Stage-up adds a Unit from the next Age to the shop. Abilities get stronger by Stage.
+Evolving: buying or merging a copy of a Unit you own gives it +1/+1 (from the higher stats of the two) and 1 experience. 3 copies make Stage 2, 6 copies make Stage 3, and every Stage-up adds a Unit from the Age after yours to the shop. Abilities get stronger by Stage.
 
-Ages: Stone in Rounds 1–2, Bronze from Round 3, Iron from Round 5, Modern from Round 7, Sci-Fi from Round 9. Units of later Ages have higher base stats. Older Units stay in the shop.
+Ages: Stone, Bronze, Iron, Modern, Sci-Fi. You start in the Stone Age and choose when to Advance to the next Age, at most once per Round. Advancing costs ${advanceRules.startPrice} gold in the Round you reach an Age and ${advanceRules.drop} gold less for every Round you stay (never below ${advanceRules.minPrice})${advanceRules.earliestRound.some((r) => r > 0) ? `, and an Age can't be reached before Round ${advanceRules.earliestRound.slice(1).join("/")} (Bronze/Iron/Modern/Sci-Fi)` : ""}. ${advanceRules.automatic ? " Once the price would reach " + advanceRules.minPrice + ", you Advance automatically at the start of that Round." : ""} When you Advance, every offer in the shop that is not frozen is replaced from the new, larger pool. Units of later Ages have higher base stats. Older Units stay in the shop. Your opponents are from the same Round but may be in any Age.
 
 Battle: start-of-battle abilities trigger first, highest attack first. Then the two front Units hit each other at the same time, a Unit at 0 health faints and the Units behind move up, until one side is empty. Armor absorbs damage before health. Battle damage, Armor, summoned Cousins and "until end of battle" buffs vanish after the battle; stats gained in the shop are permanent.
 
@@ -47,7 +48,8 @@ const runs = Number(args[0] ?? 3);
 const seed = Number(args[1] ?? 1);
 const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
-const ghosts = loadGhosts(variant.name);
+// Ghosts from the Advance test's bots, which reach their Ages at different Rounds; `npm run advance` saves them.
+const ghosts = loadGhosts(`${variant.name}-advancers`, `npm run advance 1000 1 -- --only=${variant.name}`);
 mkdirSync("out/model", { recursive: true });
 
 interface Played {
@@ -61,6 +63,7 @@ const results = await Promise.all(Array.from({ length: runs }, (_, i) => playRun
 console.log(`\nSummary (${variant.name}, ${preview ? "with" : "without"} action previews)`);
 for (const r of results) {
   console.log(`  seed ${r.seed}: ${r.phase} with ${r.wins} wins, ${r.lives} lives after ${r.rounds} Rounds, ${r.calls} decisions, ${r.sells} sells, ${r.wastedGold} gold left unspent`);
+  console.log(`    reached ${r.reached.map((x) => `${AGE_NAMES[AGES[x.age]!]} in Round ${x.round} (${x.paid ? `paid ${x.paid}` : "by itself"})`).join(", ") || "no new Age"}`);
 }
 const late = results.flatMap((r) => r.history.filter((h) => h.round >= 10 && h.outcome === "win"));
 const oldUnits = late.reduce((s, h) => s + h.line.filter((u) => u && ["stone", "bronze", "iron"].includes(unitDef(u.def).age)).length, 0);
@@ -76,8 +79,11 @@ async function playRun(runSeed: number) {
   const history: Played[] = [];
   let run = newRun(runSeed);
   let calls = 0, sells = 0, wastedGold = 0;
+  /** Each Age the Run reached, when, and what it paid (0: history moved it on). */
+  const reached: { age: number; round: number; paid: number }[] = [];
   while (run.phase === "shop") {
-    log.push(`— Round ${run.round} · ${run.lives} lives · ${run.wins} wins`);
+    if (run.age > (reached.at(-1)?.age ?? 0)) reached.push({ age: run.age, round: run.round, paid: 0 });
+    log.push(`— Round ${run.round} · ${AGE_NAMES[AGES[run.age]!]} Age · ${run.lives} lives · ${run.wins} wins`);
     const scouts = sample(rng, ghostsFor(run.round), SCOUTED_GHOSTS);
     const taken: string[] = [];
     for (let i = 0; i < MAX_ACTIONS_PER_ROUND && run.phase === "shop"; i++) {
@@ -90,6 +96,7 @@ async function playRun(runSeed: number) {
       for (const action of option.actions) {
         if (action.type === "sell") sells++;
         if (action.type === "endShop") wastedGold += run.gold;
+        if (action.type === "advance") reached.push({ age: run.age + 1, round: run.round, paid: advancePrice(run) });
         run = act(run, action);
       }
     }
@@ -104,7 +111,7 @@ async function playRun(runSeed: number) {
   }
   log.push(`Run ${run.phase} with ${run.wins} wins and ${run.lives} lives after ${run.round} Rounds`);
   writeFileSync(`out/model/run-${variant.name}-${runSeed}${preview ? "-preview" : ""}.log`, log.join("\n"));
-  return { seed: runSeed, phase: run.phase, wins: run.wins, lives: run.lives, rounds: run.round, calls, sells, wastedGold, history };
+  return { seed: runSeed, phase: run.phase, wins: run.wins, lives: run.lives, rounds: run.round, calls, sells, wastedGold, reached, history };
 }
 
 function ghostsFor(round: number): Ghost[] {
@@ -148,7 +155,7 @@ function optionsFor(run: Run): Option[] {
 async function decide(run: Run, options: Option[], scouts: Ghost[], history: Played[], taken: string[]): Promise<{ index: number; confidence: number }> {
   const pct = (x: number) => `${Math.round(x * 100)}%`;
   const context = [
-    RULES,
+    rules(),
     describeState(run),
     `Scouting: your Line as it stands would beat about ${pct(scout(run, scouts))} of ${scouts.length} typical opponents for this Round.`,
     history.length > 0
@@ -167,7 +174,7 @@ async function decide(run: Run, options: Option[], scouts: Ghost[], history: Pla
         choices: options.map((o, i) => {
           let description = o.text;
           const kind = o.actions[0]!.type;
-          if (preview && kind !== "freeze" && kind !== "reroll") {
+          if (preview && kind !== "freeze" && kind !== "reroll" && kind !== "advance") {
             description += ` (Line would then beat about ${pct(scout(o.actions.reduce(act, run), scouts))})`;
           }
           return { value: kind === "endShop" ? "end_shop" : `a${i}`, description };
@@ -195,7 +202,7 @@ async function decide(run: Run, options: Option[], scouts: Ghost[], history: Pla
 
 function describeState(run: Run): string {
   const lines = [
-    `Round ${run.round}. Latest Age: ${AGE_NAMES[AGES[latestAgeIndex(run.round)]!]}. Gold ${run.gold}. Lives ${run.lives}. Wins ${run.wins}/10. Rerolls this Round ${run.rerolls}.`,
+    `Round ${run.round}. Your Age: ${AGE_NAMES[AGES[run.age]!]} (since Round ${run.ageSince}${prosperity(run) > 0 ? `, +${prosperity(run)} gold this Round for staying` : ""}). Gold ${run.gold}. Lives ${run.lives}. Wins ${run.wins}/10. Rerolls this Round ${run.rerolls}.`,
     "Your Line (slot 1 is the front):",
     ...run.line.map((u, i) => {
       if (!u) return `  slot ${i + 1}: empty`;
@@ -233,6 +240,11 @@ function describe(run: Run, a: Action): string {
     case "merge": return `Merge ${unitAt(a.from)} into ${unitAt(a.to)}`;
     case "swap": return `Swap ${unitAt(a.a)} and ${unitAt(a.b)}`;
     case "reroll": return "Reroll the shop for 1 gold";
+    case "advance": {
+      const next = AGES[run.age + 1]!;
+      const units = UNITS.filter((u) => u.age === next && !u.token).map((u) => `${u.names[0]} ${u.attack}/${u.health} (${u.text(1)})`);
+      return `Advance to the ${AGE_NAMES[next]} Age for ${advancePrice(run)} gold. The shop then also offers ${units.join("; ")}, at ${shopRules.unitPriceByAge[run.age + 1]} gold each, and rerolls now`;
+    }
     case "freeze": {
       const offer = a.kind === "unit" ? run.shopUnits[a.shop] : run.shopInventions[a.shop];
       const name = a.kind === "unit" ? unitDef(offer!.def).names[0] : inventionDef(offer!.def).name;

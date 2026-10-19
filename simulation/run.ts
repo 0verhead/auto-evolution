@@ -2,8 +2,8 @@
 import { battle, type BattleResult } from "./battle";
 import { createRng, pick, seedFrom, weightedPick, type Rng } from "./rng";
 import { INVENTIONS, UNITS, inventionDef, unitDef } from "./roster";
-import { LINE_SIZE, type Line, type ShopApi, type Unit } from "./types";
-import { MAX_EXP, ageIndex, ageOfUnit, freshUnit, latestAgeIndex, stageOf } from "./units";
+import { AGES, LINE_SIZE, type Line, type ShopApi, type Unit } from "./types";
+import { MAX_EXP, ageIndex, ageOfUnit, freshUnit, stageOf } from "./units";
 
 export const GOLD_PER_ROUND = 10;
 export const UNIT_PRICE = 3;
@@ -12,10 +12,30 @@ export const REROLL_PRICE = 1;
 export const START_LIVES = 5;
 export const WINS_TO_WIN = 10;
 
+/**
+ * The price of Advancing: it starts at `startPrice` in the Round a Run reaches its current Age and drops by `drop`
+ * every Round the Run stays there, down to `minPrice`. Rushing is expensive; waiting makes history cheaper.
+ * Balance experiments (scripts/variants.ts) change these numbers.
+ */
+export const advanceRules = {
+  startPrice: 6,
+  drop: 2,
+  minPrice: 0,
+  /** Extra gold at the start of each Round for every Round the Run has stayed in its Age, up to `maxProsperity`. */
+  prosperity: 0,
+  maxProsperity: 0,
+  /** The earliest Round in which a Run may reach the Age at each index (0 = no limit). */
+  earliestRound: [0, 0, 0, 0, 0],
+  /** History doesn't wait: once Advancing would be free, the Run Advances by itself at the start of the Round. */
+  automatic: true,
+};
+
 /** Shop odds; balance experiments (scripts/variants.ts) change them. */
 export const shopRules = {
   /** Weight of Units from an Age two or more behind the latest one (1 = as likely as any other Unit, as in SAP). */
   oldAgeWeight: 1,
+  /** Price of a Unit by its Age (Stone … Sci-Fi). */
+  unitPriceByAge: [2, 3, 3, 4, 4],
 };
 
 export interface ShopUnit {
@@ -47,6 +67,10 @@ export interface Run {
   /** From Canned Food: added to every Unit the shop offers for the rest of the Run. */
   shopBuff: { attack: number; health: number };
   rerolls: number;
+  /** Index of the Run's current Age in AGES: the shop offers Units and Inventions up to it. */
+  age: number;
+  /** The Round in which the Run reached its current Age. */
+  ageSince: number;
 }
 
 export type Action =
@@ -56,6 +80,7 @@ export type Action =
   | { type: "merge"; from: number; to: number }
   | { type: "swap"; a: number; b: number }
   | { type: "reroll" }
+  | { type: "advance" }
   | { type: "freeze"; kind: "unit" | "invention"; shop: number }
   | { type: "endShop" };
 
@@ -72,6 +97,8 @@ export function newRun(seed: number): Run {
     shopInventions: [],
     shopBuff: { attack: 0, health: 0 },
     rerolls: 0,
+    age: 0,
+    ageSince: 1,
   };
   startRound(run);
   return run;
@@ -123,6 +150,27 @@ export function inventionSlots(round: number): number {
   return round >= 3 ? 2 : 1;
 }
 
+/** The extra gold a Run gets this Round for staying in its Age. */
+export function prosperity(run: Run): number {
+  return Math.min(advanceRules.maxProsperity, advanceRules.prosperity * (run.round - run.ageSince));
+}
+
+/** What Advancing to the next Age costs now. */
+export function advancePrice(run: Run): number {
+  return Math.max(advanceRules.minPrice, advanceRules.startPrice - advanceRules.drop * (run.round - run.ageSince));
+}
+
+/** A Run can Advance once per Round, until it reaches the last Age. */
+export function canAdvance(run: Run): boolean {
+  return (
+    run.phase === "shop" &&
+    run.age < AGES.length - 1 &&
+    run.ageSince < run.round &&
+    run.round >= advanceRules.earliestRound[run.age + 1]! &&
+    advancePrice(run) <= run.gold
+  );
+}
+
 /** Legal actions, with purchases offered into the first empty slot only (placement is done by swapping). */
 export function legalActions(run: Run): Action[] {
   if (run.phase !== "shop") return [];
@@ -153,6 +201,7 @@ export function legalActions(run: Run): Action[] {
     }
   }
   if (run.gold >= REROLL_PRICE) actions.push({ type: "reroll" });
+  if (canAdvance(run)) actions.push({ type: "advance" });
   run.shopUnits.forEach((_, shop) => actions.push({ type: "freeze", kind: "unit", shop }));
   run.shopInventions.forEach((_, shop) => actions.push({ type: "freeze", kind: "invention", shop }));
   actions.push({ type: "endShop" });
@@ -242,6 +291,15 @@ function apply(run: Run, action: Action): void {
       rollShop(run);
       return;
     }
+    case "advance": {
+      if (!canAdvance(run)) throw new Error("Cannot Advance now");
+      run.gold -= advancePrice(run);
+      run.age++;
+      run.ageSince = run.round;
+      // The new Age arrives at once: everything not frozen is replaced from the larger pool.
+      rollShop(run);
+      return;
+    }
     case "freeze": {
       const offer = action.kind === "unit" ? run.shopUnits[action.shop] : run.shopInventions[action.shop];
       if (!offer) throw new Error("Nothing to freeze");
@@ -262,24 +320,28 @@ function startRound(run: Run): void {
   run.round++;
   // As in SAP, Rounds 1–2 are random enough that one lost life comes back at the start of Round 3.
   if (run.round === 3 && run.lives < START_LIVES) run.lives++;
-  run.gold = GOLD_PER_ROUND;
+  run.gold = GOLD_PER_ROUND + prosperity(run);
   run.rerolls = 0;
   run.phase = "shop";
+  if (advanceRules.automatic && run.age < AGES.length - 1 && advancePrice(run) <= advanceRules.minPrice) {
+    run.age++;
+    run.ageSince = run.round;
+  }
   rollShop(run);
   for (const unit of units(run)) {
     if (unitDef(unit.def).trigger === "startOfRound") useShopAbility(run, unit);
   }
 }
 
-/** Keeps frozen offers and refills the rest from every unlocked Age. */
+/** Keeps frozen offers and refills the rest from the Run's Age and every Age before it. */
 function rollShop(run: Run): void {
-  const latest = latestAgeIndex(run.round);
+  const latest = run.age;
   const unitPool = UNITS.filter((u) => !u.token && ageIndex(u.age) <= latest);
   const inventionPool = INVENTIONS.filter((i) => ageIndex(i.age) <= latest);
   run.shopUnits = run.shopUnits.filter((s) => s.frozen);
   const weight = (u: (typeof unitPool)[number]) => (ageIndex(u.age) <= latest - 2 ? shopRules.oldAgeWeight : 1);
   while (run.shopUnits.length < unitSlots(run.round)) {
-    run.shopUnits.push(offerUnit(run, weightedPick(run.rng, unitPool, weight)!.id, UNIT_PRICE));
+    run.shopUnits.push(offerUnit(run, weightedPick(run.rng, unitPool, weight)!.id));
   }
   run.shopInventions = run.shopInventions.filter((s) => s.frozen);
   while (run.shopInventions.length < inventionSlots(run.round)) {
@@ -287,19 +349,19 @@ function rollShop(run: Run): void {
   }
 }
 
-function offerUnit(run: Run, def: string, price: number): ShopUnit {
+function offerUnit(run: Run, def: string, price = shopRules.unitPriceByAge[ageIndex(unitDef(def).age)]!): ShopUnit {
   const fresh = freshUnit(def);
   return { def, attack: fresh.attack + run.shopBuff.attack, health: fresh.health + run.shopBuff.health, price, frozen: false };
 }
 
-/** Each Stage-up adds a Unit from the next Age to the shop, as in SAP. */
+/** Each Stage-up adds a Unit from the Age after the Run's to the shop, as in SAP: a glimpse of what Advancing brings. */
 function addExp(run: Run, unit: Unit, exp: number): void {
   const before = stageOf(unit.exp);
   unit.exp = Math.min(MAX_EXP, unit.exp + exp);
   if (stageOf(unit.exp) > before) {
-    const age = Math.min(4, latestAgeIndex(run.round) + 1);
+    const age = Math.min(AGES.length - 1, run.age + 1);
     const def = pick(run.rng, UNITS.filter((u) => !u.token && ageIndex(u.age) === age))!;
-    run.shopUnits.push(offerUnit(run, def.id, UNIT_PRICE));
+    run.shopUnits.push(offerUnit(run, def.id));
   }
 }
 

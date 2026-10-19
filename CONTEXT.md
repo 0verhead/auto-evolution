@@ -11,7 +11,7 @@ One full game, from the first Round until the player reaches 10 wins or runs out
 _Avoid_: Match, game, session
 
 **Round**:
-One shop phase followed by one battle. Ages unlock by Round number.
+One shop phase followed by one battle.
 _Avoid_: Turn
 
 **Line**:
@@ -19,11 +19,11 @@ The player's five slots, ordered front to back, where their Units stand.
 _Avoid_: Team, board, army, lineup
 
 **Ghost**:
-A saved Line from a particular Round that another player fights asynchronously. A real player or a bot can create it, and the game treats both the same.
+A saved Line from a particular Round that another player fights asynchronously. It comes from the same Round but not necessarily the same Age. A real player or a bot can create it, and the game treats both the same.
 _Avoid_: Opponent team, enemy, AI team
 
 **Personality**:
-A bot's set of priorities when it plays the shop. The Purist favours the newest Age, and the Mixer favours a Line with many different Ages.
+A bot's set of priorities when it plays the shop. The Purist favours the newest Age, and the Mixer favours a Line with many different Ages. Rush, Steady and Boom differ only in how early they Advance.
 _Avoid_: Difficulty, AI level, strategy
 
 ### Units and progression
@@ -33,8 +33,12 @@ A fighter the player owns, occupying one slot in their line. Each Unit belongs t
 _Avoid_: Pet, card, minion, champion
 
 **Age**:
-One step of the shared historical timeline (Stone, Bronze, Iron, Modern, Sci-Fi). A new Age unlocks for every player in a set round and adds its Units to the shop. Units of later Ages are stronger, so older Units earn a place in a late line as supporters rather than fighters.
+One step of the historical timeline (Stone, Bronze, Iron, Modern, Sci-Fi). Every Run starts in the Stone Age and moves forward by Advancing; the shop offers Units of the Run's Age and every Age before it. Units of later Ages are stronger and cost more gold, so older Units earn a place in a late line as cheap supporters rather than fighters.
 _Avoid_: Era, tier, epoch
+
+**Advance**:
+To move a Run into the next Age. It costs gold, and the price drops every Round the Run stays in its Age; once it would be free, history moves the Run on by itself. A player decides how early to Advance, never whether.
+_Avoid_: Age up, unlock, evolve (Units Evolve; Runs Advance)
 
 **Specialty**:
 The one kind of effect an Age's Units are best at, taken from what that Age is famous for in history: Numbers (Stone), Patience (Bronze), Formation (Iron), Industry (Modern), Rule-breaking (Sci-Fi).

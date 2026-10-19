@@ -1,5 +1,5 @@
 import { unitDef } from "./roster";
-import { AGES, type Age, type Stage, type Unit } from "./types";
+import { AGES, type Age, type Line, type Stage, type Unit } from "./types";
 
 /** Stage 2 at 3 copies (2 exp), Stage 3 at 6 copies (5 exp), as in SAP. */
 export const MAX_EXP = 5;
@@ -16,9 +16,9 @@ export function ageOfUnit(unit: Unit): Age {
   return unitDef(unit.def).age;
 }
 
-/** Ages arrive every 2 Rounds: Stone 1–2, Bronze 3–4, Iron 5–6, Modern 7–8, Sci-Fi from 9. */
-export function latestAgeIndex(round: number): number {
-  return Math.min(AGES.length - 1, Math.floor((round - 1) / 2));
+/** A Line's Age as anyone can see it: the latest Age among its Units (Stone when empty). */
+export function lineAgeIndex(line: Line): number {
+  return Math.max(0, ...line.filter((u) => u !== null).map((u) => ageIndex(ageOfUnit(u))));
 }
 
 export function unitName(unit: Unit): string {

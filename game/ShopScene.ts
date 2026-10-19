@@ -1,8 +1,8 @@
 import * as Phaser from "phaser";
-import { inventionDef, unitDef } from "../simulation/roster";
-import { act, resolveBattle, REROLL_PRICE, type Action } from "../simulation/run";
+import { UNITS, inventionDef, unitDef } from "../simulation/roster";
+import { act, advancePrice, advanceRules, canAdvance, resolveBattle, REROLL_PRICE, shopRules, type Action } from "../simulation/run";
 import { AGE_NAMES, AGES, LINE_SIZE } from "../simulation/types";
-import { MAX_EXP, latestAgeIndex, stageOf } from "../simulation/units";
+import { MAX_EXP, stageOf } from "../simulation/units";
 import { AGE_COLORS, COLORS, FONT_DISPLAY } from "./art";
 import { muted, play, toggleMuted, type Sfx } from "./sound";
 import { ghostFor, save, type Saved } from "./state";
@@ -17,6 +17,7 @@ const SOUND_FOR: Record<Action["type"], Sfx> = {
   merge: "merge",
   swap: "select",
   reroll: "reroll",
+  advance: "eureka",
   freeze: "freeze",
   endShop: "fight",
 };
@@ -58,13 +59,13 @@ export class ShopScene extends Phaser.Scene {
     stage(this);
     this.input.dragDistanceThreshold = 8;
     this.input.on("pointerdown", () => (this.justDragged = false));
-    backdrop(this, AGES[latestAgeIndex(this.run.round)]!);
+    backdrop(this, AGES[this.run.age]!);
     this.layer = this.add.container(0, 0);
     this.card = new InfoCard(this);
     this.render();
-    const round = this.run.round;
-    if (round > 1 && round % 2 === 1 && round <= 9) {
-      toast(this, `Eureka! The ${AGE_NAMES[AGES[latestAgeIndex(round)]!]} Age begins`, 150);
+    // A new Age this Round, whether the player Advanced or history moved on by itself.
+    if (this.run.age > 0 && this.run.ageSince === this.run.round) {
+      toast(this, `Eureka! The ${AGE_NAMES[AGES[this.run.age]!]} Age begins`, 150);
       play(this, "eureka");
     }
   }
@@ -78,7 +79,7 @@ export class ShopScene extends Phaser.Scene {
     this.cards.clear();
     this.card.hide();
     const run = this.run;
-    const age = AGES[latestAgeIndex(run.round)]!;
+    const age = AGES[run.age]!;
     const add = <T extends Phaser.GameObjects.GameObject>(o: T) => (this.layer.add(o), o);
 
     // HUD
@@ -149,9 +150,46 @@ export class ShopScene extends Phaser.Scene {
     );
     const sellValue = sel?.kind === "line" && run.line[sel.index] ? stageOf(run.line[sel.index]!.exp) : 0;
     add(button(this, 490, 668, sellValue ? `🪙 Sell +${sellValue}` : "🪙 Sell", () => sel?.kind === "line" && this.perform({ type: "sell", slot: sel.index }), sellValue > 0, 170, "danger"));
+    add(this.advanceButton(800, 668));
     add(button(this, 1130, 668, "End turn ▶", () => this.endTurn(), true, 210, "primary"));
 
     if (sel) this.showCardFor(sel);
+  }
+
+  /** Advancing to the next Age: its price, and a reminder that waiting makes it cheaper. */
+  private advanceButton(x: number, y: number): Phaser.GameObjects.Container {
+    const run = this.run;
+    const next = AGES[run.age + 1];
+    if (!next) return button(this, x, y, "Final Age", () => {}, false, 270);
+    if (run.ageSince === run.round && run.round > 1) return button(this, x, y, `${AGE_NAMES[AGES[run.age]!]} Age reached`, () => {}, false, 270);
+    const price = advancePrice(run);
+    const c = button(this, x, y, `⏩ ${AGE_NAMES[next]} Age · ${price}`, () => this.perform({ type: "advance" }), canAdvance(run), 270, "age");
+    const waits = Math.ceil((price - advanceRules.minPrice) / advanceRules.drop);
+    const hint = advanceRules.automatic ? `${advanceRules.drop} cheaper per Round · comes by itself in ${waits} ${waits === 1 ? "Round" : "Rounds"}` : `${advanceRules.drop} gold cheaper every Round you wait`;
+    if (price > advanceRules.minPrice) c.add(text(this, 0, -46, hint, 13, COLORS.text, "600").setStroke("#1c1410", 4));
+    // Hovering shows what the next Age brings, even while the button can't be pressed.
+    if (!c.input) c.setInteractive();
+    const preview = this.agePreview(next, x, y - 80);
+    c.on("pointerover", () => preview.setVisible(true));
+    c.on("pointerout", () => preview.setVisible(false));
+    return c;
+  }
+
+  /** The next Age's Units with their stats and price, standing above the Advance button. */
+  private agePreview(age: (typeof AGES)[number], x: number, bottom: number): Phaser.GameObjects.Container {
+    const units = UNITS.filter((u) => u.age === age && !u.token);
+    const w = 150 * units.length + 30;
+    const h = 210;
+    const panel = this.add.container(x, bottom - h / 2).setDepth(90).setVisible(false);
+    panel.add(this.add.rectangle(0, 0, w, h, 0x241b14, 0.97).setStrokeStyle(3, AGE_COLORS[age]));
+    panel.add(text(this, 0, -h / 2 + 22, `The ${AGE_NAMES[age]} Age brings`, 18, COLORS.text, "700", FONT_DISPLAY));
+    units.forEach((u, i) => {
+      const ux = (i - (units.length - 1) / 2) * 150;
+      panel.add(new UnitView(this, ux, 40, { def: u.id, stage: 1, attack: u.attack, health: u.health, price: shopRules.unitPriceByAge[AGES.indexOf(age)], size: 90 }));
+      panel.add(text(this, ux, 88, u.names[0], 14, COLORS.text, "700"));
+    });
+    this.layer.add(panel);
+    return panel;
   }
 
   private isSelected(kind: Selection["kind"], index: number): boolean {
@@ -265,6 +303,10 @@ export class ShopScene extends Phaser.Scene {
       return this.fail((e as Error).message);
     }
     save(this.saved);
+    if (action.type === "advance") {
+      this.scene.restart({ saved: this.saved });
+      return;
+    }
     if (!keepSelection) this.selected = null;
     play(this, SOUND_FOR[action.type]);
     if (action.type === "buy" || action.type === "merge") {

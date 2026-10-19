@@ -1,7 +1,7 @@
 // Balance variants for experiments. Each one changes the rules in place and returns a function that restores them.
 import { UNITS, UNIT_BY_ID, unitDef } from "../simulation/roster";
 import type { UnitDef } from "../simulation/types";
-import { shopRules } from "../simulation/run";
+import { advanceRules, shopRules } from "../simulation/run";
 
 export interface Variant {
   name: string;
@@ -227,6 +227,48 @@ const storyBridges: Variant = {
   },
 };
 
+function advanceVariant(name: string, description: string, rules: Partial<typeof advanceRules>): Variant {
+  return {
+    name: `advance-${name}`,
+    description,
+    apply: () => {
+      const before = { ...advanceRules };
+      Object.assign(advanceRules, rules);
+      return () => Object.assign(advanceRules, before);
+    },
+  };
+}
+
+const advancePrices = (startPrice: number, drop: number) =>
+  advanceVariant(`${startPrice}-${drop}`, `Advancing costs ${startPrice} gold in the Round a Run reaches its Age, ${drop} less every Round after`, { startPrice, drop });
+
+/** Bronze from Round 2, Iron 4, Modern 6, Sci-Fi 8: at most one Round ahead of the old shared timeline. */
+const EARLIEST = [0, 2, 4, 6, 8];
+
+const prosperous = (per: number, max: number, earliest = false) =>
+  advanceVariant(
+    `prosper-${per}-${max}${earliest ? "-early" : ""}`,
+    `Advance as in 6-2, plus ${per} gold per Round stayed in an Age (at most +${max})${earliest ? `, and Ages no earlier than Rounds ${EARLIEST.slice(1).join("/")}` : ""}`,
+    { prosperity: per, maxProsperity: max, earliestRound: earliest ? EARLIEST : [0, 0, 0, 0, 0] },
+  );
+
+function pricedByAge(prices: number[], advance: Partial<typeof advanceRules> = {}, suffix = ""): Variant {
+  return {
+    name: `price-${prices.join("")}${suffix}`,
+    description: `Units cost ${prices.join("/")} gold by Age (Stone … Sci-Fi)${suffix ? `, with ${suffix.slice(1)}` : ""}`,
+    apply: () => {
+      const before = [...shopRules.unitPriceByAge];
+      const beforeAdvance = { ...advanceRules };
+      shopRules.unitPriceByAge = prices;
+      Object.assign(advanceRules, advance);
+      return () => {
+        shopRules.unitPriceByAge = before;
+        Object.assign(advanceRules, beforeAdvance);
+      };
+    },
+  };
+}
+
 export const VARIANTS: Variant[] = [
   { name: "baseline", description: "Rules as in docs/roster.md", apply: () => () => {} },
   rareOldAges(0.5),
@@ -242,4 +284,44 @@ export const VARIANTS: Variant[] = [
   steepestCurve,
   biggerRoster(3),
   sapLateEffects,
+  advancePrices(4, 1),
+  advancePrices(6, 2),
+  advancePrices(8, 2),
+  advancePrices(9, 3),
+  advancePrices(5, 1),
+  advancePrices(3, 0),
+  advanceVariant("early", `Advance as in 6-2, but Ages no earlier than Rounds ${EARLIEST.slice(1).join("/")}`, { earliestRound: EARLIEST }),
+  prosperous(1, 3),
+  prosperous(1, 5),
+  prosperous(2, 6),
+  prosperous(1, 3, true),
+  prosperous(1, 5, true),
+  prosperous(2, 6, true),
+  pricedByAge([2, 3, 3, 4, 5]),
+  pricedByAge([2, 3, 4, 5, 6]),
+  pricedByAge([2, 2, 3, 4, 5]),
+  pricedByAge([1, 2, 3, 4, 5]),
+  pricedByAge([2, 3, 4, 5, 6], { earliestRound: EARLIEST }, "-early"),
+  pricedByAge([2, 3, 4, 5, 6], { prosperity: 1, maxProsperity: 3 }, "-prosper"),
+  pricedByAge([2, 3, 4, 5, 6], { startPrice: 0, drop: 0 }, "-free"),
+  pricedByAge([2, 3, 4, 5, 6], { startPrice: 3, drop: 1 }, "-advance-3-1"),
+  pricedByAge([2, 3, 4, 5, 6], { startPrice: 4, drop: 2 }, "-advance-4-2"),
+  pricedByAge([2, 3, 3, 4, 5], { startPrice: 0, drop: 0 }, "-free"),
+  pricedByAge([2, 3, 3, 4, 5], { startPrice: 4, drop: 2 }, "-advance-4-2"),
+  pricedByAge([3, 3, 3, 3, 3]),
+  pricedByAge([2, 3, 3, 4, 4]),
+  pricedByAge([2, 2, 3, 3, 4]),
+  pricedByAge([2, 3, 3, 3, 4]),
+  pricedByAge([3, 3, 3, 4, 4]),
+  pricedByAge([3, 3, 4, 4, 5]),
+  pricedByAge([2, 3, 4, 4, 5]),
+  pricedByAge([2, 3, 3, 3, 3]),
+  pricedByAge([3, 3, 3, 3, 3], { automatic: true }, "-auto"),
+  pricedByAge([2, 3, 3, 3, 3], { automatic: true }, "-auto"),
+  pricedByAge([2, 3, 3, 4, 4], { automatic: true }, "-auto"),
+  pricedByAge([2, 3, 3, 4, 5], { automatic: true }, "-auto"),
+  pricedByAge([2, 3, 4, 5, 6], { automatic: true }, "-auto"),
+  pricedByAge([3, 3, 3, 3, 3], { automatic: true, startPrice: 8, drop: 2 }, "-auto-8-2"),
+  pricedByAge([3, 3, 3, 3, 3], { automatic: true, startPrice: 9, drop: 3 }, "-auto-9-3"),
+  pricedByAge([2, 3, 3, 4, 5], { automatic: true, startPrice: 4, drop: 2 }, "-auto-4-2"),
 ];
