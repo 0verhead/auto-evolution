@@ -11,8 +11,8 @@ export interface Variant {
 
 function rareOldAges(weight: number): Variant {
   return {
-    name: weight === 1 ? "sap-shop-odds" : `old-ages-${weight}`,
-    description: weight === 1 ? "SAP's shop odds: every unlocked Unit is equally likely" : `Units from an Age two or more behind the latest appear at ${weight}× the rate of newer ones`,
+    name: `old-ages-${weight}`,
+    description: `Units from an Age two or more behind the latest appear at ${weight}× the rate of newer ones`,
     apply: () => {
       const before = shopRules.oldAgeWeight;
       shopRules.oldAgeWeight = weight;
@@ -229,8 +229,8 @@ const storyBridges: Variant = {
 
 export const VARIANTS: Variant[] = [
   { name: "baseline", description: "Rules as in docs/roster.md", apply: () => () => {} },
-  rareOldAges(1),
   rareOldAges(0.5),
+  rareOldAges(0.25),
   weakerStone,
   patienceEveryOther,
   patienceCapped,
