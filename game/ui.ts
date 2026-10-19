@@ -2,15 +2,20 @@
 import * as Phaser from "phaser";
 import { inventionDef, unitDef } from "../simulation/roster";
 import { AGE_NAMES } from "../simulation/types";
-import { AGE_COLORS, COLORS, FONT, FONT_CHUNKY, FONT_DISPLAY, art, artKey } from "./art";
+import { AGE_COLORS, COLORS, FONT, FONT_CHUNKY, FONT_DISPLAY, RESOLUTION, art, artKey } from "./art";
+
+/** Points the scene's camera at the 1280×720 stage, zoomed to the canvas resolution. */
+export function stage(scene: Phaser.Scene): void {
+  scene.cameras.main.setZoom(RESOLUTION).centerOn(640, 360);
+}
 
 export function text(scene: Phaser.Scene, x: number, y: number, value: string, size: number, color = COLORS.text, weight = "600", family = FONT): Phaser.GameObjects.Text {
-  return scene.add.text(x, y, value, { fontFamily: family, fontSize: `${size}px`, color, fontStyle: weight }).setOrigin(0.5);
+  return scene.add.text(x, y, value, { fontFamily: family, fontSize: `${size}px`, color, fontStyle: weight, resolution: RESOLUTION }).setOrigin(0.5);
 }
 
 /** Chunky numbers and labels with a dark outline, readable on any background. */
 export function chunky(scene: Phaser.Scene, x: number, y: number, value: string, size: number, color = COLORS.text): Phaser.GameObjects.Text {
-  return scene.add.text(x, y, value, { fontFamily: FONT_CHUNKY, fontSize: `${size}px`, color }).setOrigin(0.5).setStroke("#1c1410", Math.max(3, size / 6));
+  return scene.add.text(x, y, value, { fontFamily: FONT_CHUNKY, fontSize: `${size}px`, color, resolution: RESOLUTION }).setOrigin(0.5).setStroke("#1c1410", Math.max(3, size / 6));
 }
 
 /** The figure itself: generated art when it exists, the emoji otherwise. Its bottom edge sits at y = 0. */
@@ -154,7 +159,8 @@ export class InfoCard extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  show(info: CardInfo, x: number, y: number): void {
+  /** Shows the card at x with its top or bottom edge at y, so it never covers the figure it describes. */
+  show(info: CardInfo, x: number, y: number, edge: "top" | "bottom"): void {
     this.removeAll(true);
     const w = InfoCard.WIDTH;
     const scene = this.scene;
@@ -164,6 +170,7 @@ export class InfoCard extends Phaser.GameObjects.Container {
       color: COLORS.text,
       wordWrap: { width: w - 128 },
       lineSpacing: 3,
+      resolution: RESOLUTION,
     });
     const h = Math.max(150, body.height + 76);
     body.setY(-h / 2 + 62);
@@ -176,12 +183,11 @@ export class InfoCard extends Phaser.GameObjects.Container {
     const portrait = figure(scene, info.id, info.stage, 92);
     portrait.setPosition(-w / 2 + 56, 46);
     this.add(portrait);
-    this.add(scene.add.text(-w / 2 + 112, -h / 2 + 12, info.title, { fontFamily: FONT_DISPLAY, fontSize: "19px", color: COLORS.text, fontStyle: "700" }));
-    const chip = scene.add.text(-w / 2 + 112, -h / 2 + 38, `${AGE_NAMES[info.age]} Age`, { fontFamily: FONT, fontSize: "12px", color: "#14110f", fontStyle: "700" });
+    this.add(scene.add.text(-w / 2 + 112, -h / 2 + 12, info.title, { fontFamily: FONT_DISPLAY, fontSize: "19px", color: COLORS.text, fontStyle: "700", resolution: RESOLUTION }));
+    const chip = scene.add.text(-w / 2 + 112, -h / 2 + 38, `${AGE_NAMES[info.age]} Age`, { fontFamily: FONT, fontSize: "12px", color: "#14110f", fontStyle: "700", resolution: RESOLUTION });
     chip.setBackgroundColor(Phaser.Display.Color.IntegerToColor(color).rgba).setPadding(6, 2, 6, 2);
     this.add([chip, body]);
-    const cam = scene.cameras.main;
-    this.setPosition(Phaser.Math.Clamp(x, w / 2 + 8, cam.width - w / 2 - 8), Phaser.Math.Clamp(y, h / 2 + 8, cam.height - h / 2 - 8));
+    this.setPosition(Phaser.Math.Clamp(x, w / 2 + 8, 1280 - w / 2 - 8), Phaser.Math.Clamp(edge === "top" ? y + h / 2 : y - h / 2, h / 2 + 8, 720 - h / 2 - 8));
     this.setVisible(true);
   }
 
@@ -240,7 +246,7 @@ export function pill(scene: Phaser.Scene, x: number, y: number, icon: string, va
 
 /** A short message that fades out. */
 export function toast(scene: Phaser.Scene, message: string, y = 120): void {
-  const t = chunky(scene, scene.scale.width / 2, y, message, 26).setDepth(100);
+  const t = chunky(scene, 640, y, message, 26).setDepth(100);
   scene.tweens.add({ targets: t, alpha: 0, y: y - 30, delay: 1400, duration: 500, onComplete: () => t.destroy() });
 }
 

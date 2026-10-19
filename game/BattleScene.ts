@@ -6,7 +6,7 @@ import { AGES } from "../simulation/types";
 import { COLORS, FONT_DISPLAY } from "./art";
 import { play } from "./sound";
 import type { Saved } from "./state";
-import { InfoCard, UnitView, backdrop, button, chunky, floater, text, unitCardInfo } from "./ui";
+import { InfoCard, UnitView, backdrop, button, chunky, floater, stage, text, unitCardInfo } from "./ui";
 
 const FRONT_X: [number, number] = [560, 720];
 const SPACING = 118;
@@ -51,6 +51,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   create(): void {
+    stage(this);
     backdrop(this, AGES[latestAgeIndex(this.round)]!);
     text(this, 640, 34, `Round ${this.round}`, 30, COLORS.text, "900", FONT_DISPLAY).setStroke("#1c1410", 5);
     chunky(this, 330, 150, "You", 26);
@@ -149,7 +150,7 @@ export class BattleScene extends Phaser.Scene {
     const card = new UnitView(this, this.slotX(side, at), FEET_Y, { def: view.def, stage: view.stage, attack: view.attack, health: view.health, armor: view.armor, size: SIZE, flip: side === 1 });
     const zone = this.add.zone(0, -SIZE / 2 + 10, SIZE, SIZE + 40).setInteractive();
     card.add(zone);
-    zone.on("pointerover", () => this.info.show(unitCardInfo(view.def, view.stage), card.x, FEET_Y - SIZE - 110));
+    zone.on("pointerover", () => !this.resultShown && this.info.show(unitCardInfo(view.def, view.stage), card.x, FEET_Y - SIZE - 40, "bottom"));
     zone.on("pointerout", () => this.info.hide());
     this.shown.set(view.id, { card, side, view });
     this.order[side]!.splice(at, 0, view.id);
@@ -176,6 +177,7 @@ export class BattleScene extends Phaser.Scene {
   private showResult(): void {
     if (this.resultShown) return;
     this.resultShown = true;
+    this.info.hide();
     const run = this.saved.run;
     play(this, OUTCOME_SOUND[this.outcome]);
     const title = { win: "Victory!", loss: "Defeat", draw: "Draw" }[this.outcome];

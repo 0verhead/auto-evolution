@@ -1,4 +1,4 @@
-// Generates the game's art with Gemini (Nano Banana 2.1). Originals (1024 px) go to out/art-source, which is not
+// Generates the game's art with Gemini (Nano Banana 2.1). Originals (1024 px, backgrounds 2K) go to out/art-source, which is not
 // committed; game-sized copies go to game/public/art (<art key>.webp, backgrounds bg.<age>.jpg). Needs GEMINI_API_KEY.
 //   npm run art [--only=caveman.1,pharaoh.3] [--style=a|b] [--out=dir] [--force]
 import { execFileSync } from "node:child_process";
@@ -10,9 +10,10 @@ const KEY_BACKGROUND = "Solid, perfectly flat pure magenta background (#FF00FF) 
 const KEY_COLOR = "0xFF00FF";
 const CONCURRENCY = 4;
 const GAME_ART = "game/public/art";
-/** Characters are shown at up to about 130 px; 384 keeps them sharp on 3× phone screens. */
-const CARD_SIZE = 384;
-const BACKGROUND_WIDTH = 1600;
+/** A power of two so the GPU can mipmap it: figures stay smooth when drawn small and sharp at up to 3× zoom. */
+const CARD_SIZE = 512;
+/** Twice the 1280 px stage, for high-DPI screens. */
+const BACKGROUND_WIDTH = 2560;
 
 /** Cartoony and readable like Super Auto Pets, but grounded and serious rather than cute. */
 const STYLES: Record<string, string> = {
@@ -135,7 +136,7 @@ async function worker(): Promise<void> {
       ? `${BACKGROUND_STYLE}\n\nScene: ${BACKGROUNDS[key]}.`
       : `${item ? ITEM_STYLE : style}\n\n${item ? "Object" : "Subject"}: ${SUBJECTS[key]}.`;
     try {
-      writeFileSync(`${out}/${key}.jpg`, await generate(prompt, background ? "16:9" : "1:1"));
+      writeFileSync(`${out}/${key}.jpg`, await generate(prompt, background ? "16:9" : "1:1", background ? "2K" : "1K"));
       console.log(`  ✓ ${key}`);
     } catch (e) {
       const err = e as Error & { cause?: { message?: string } };
@@ -152,18 +153,18 @@ function resizeForGame(): void {
     if (key.startsWith("bg.")) {
       execFileSync("ffmpeg", ["-v", "error", "-y", "-i", `${out}/${file}`, "-vf", `scale=${BACKGROUND_WIDTH}:-2:flags=lanczos`, "-q:v", "4", `${GAME_ART}/${file}`]);
     } else {
-      const filter = `colorkey=${KEY_COLOR}:0.32:0.08,scale=${CARD_SIZE}:-2:flags=lanczos`;
+      const filter = `colorkey=${KEY_COLOR}:0.32:0.08,scale=${CARD_SIZE}:${CARD_SIZE}:flags=lanczos`;
       execFileSync("ffmpeg", ["-v", "error", "-y", "-i", `${out}/${file}`, "-vf", filter, "-c:v", "libwebp", "-quality", "85", "-pix_fmt", "yuva420p", `${GAME_ART}/${key}.webp`]);
     }
   }
   console.log(`Resized ${readdirSync(out).length} images into ${GAME_ART}`);
 }
 
-async function generate(prompt: string, aspectRatio: string): Promise<Buffer> {
+async function generate(prompt: string, aspectRatio: string, imageSize: string): Promise<Buffer> {
   for (let attempt = 0; ; attempt++) {
     let res: Response;
     try {
-      res = await request(prompt, aspectRatio);
+      res = await request(prompt, aspectRatio, imageSize);
     } catch (e) {
       // Dropped connections happen under load; retry them like rate limits.
       if (attempt >= 4) throw e;
@@ -181,13 +182,13 @@ async function generate(prompt: string, aspectRatio: string): Promise<Buffer> {
   }
 }
 
-function request(prompt: string, aspectRatio: string): Promise<Response> {
+function request(prompt: string, aspectRatio: string, imageSize: string): Promise<Response> {
   return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
     method: "POST",
     headers: { "x-goog-api-key": apiKey!, "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio } },
+      generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio, imageSize } },
     }),
   });
 }

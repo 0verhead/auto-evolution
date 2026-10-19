@@ -6,7 +6,7 @@ import { MAX_EXP, latestAgeIndex, stageOf } from "../simulation/units";
 import { AGE_COLORS, COLORS, FONT_DISPLAY } from "./art";
 import { muted, play, toggleMuted, type Sfx } from "./sound";
 import { ghostFor, save, type Saved } from "./state";
-import { InfoCard, ItemView, UnitView, backdrop, button, inventionCardInfo, pill, text, toast, unitCardInfo, type CardInfo } from "./ui";
+import { InfoCard, ItemView, UnitView, backdrop, button, inventionCardInfo, pill, stage, text, toast, unitCardInfo, type CardInfo } from "./ui";
 
 type Selection = { kind: "shopUnit" | "shopInvention" | "line"; index: number };
 
@@ -27,8 +27,10 @@ const LINE_FEET = 345;
 const SHOP_FEET = 588;
 const SLOT_HALF_WIDTH = 80;
 /** Where the info card appears for Line Units (below them) and shop offers (above them). */
-const LINE_CARD_Y = 445;
-const SHOP_CARD_Y = 370;
+/** Where the hover card goes: hanging below Line Units (under their badges), standing above shop items. */
+const LINE_CARD = { y: 392, edge: "top" } as const;
+const SHOP_CARD = { y: 440, edge: "bottom" } as const;
+type CardPlace = { y: number; edge: "top" | "bottom" };
 
 const keyOf = (s: Selection) => `${s.kind}:${s.index}`;
 
@@ -37,7 +39,7 @@ export class ShopScene extends Phaser.Scene {
   private selected: Selection | null = null;
   private layer!: Phaser.GameObjects.Container;
   private card!: InfoCard;
-  private cards = new Map<string, { info: CardInfo; x: number; y: number }>();
+  private cards = new Map<string, { info: CardInfo; x: number; place: CardPlace }>();
   private slotMarkers: Phaser.GameObjects.Ellipse[] = [];
   /** A release that ends a drag must not also count as a tap. */
   private dragging = false;
@@ -53,6 +55,7 @@ export class ShopScene extends Phaser.Scene {
   }
 
   create(): void {
+    stage(this);
     this.input.dragDistanceThreshold = 8;
     this.input.on("pointerdown", () => (this.justDragged = false));
     backdrop(this, AGES[latestAgeIndex(this.run.round)]!);
@@ -104,7 +107,7 @@ export class ShopScene extends Phaser.Scene {
       const needed = (stage === 1 ? 2 : 5) - unit.exp;
       const extra = [stage === 3 ? "Fully evolved." : `${needed} more ${needed === 1 ? "copy" : "copies"} to evolve.`, `Sells for ${stage} gold.`];
       if (unit.tempAttack || unit.tempHealth) extra.push(`+${unit.tempAttack}/+${unit.tempHealth} until the end of the next battle.`);
-      this.interactive(view, { kind: "line", index: slot }, unitCardInfo(unit.def, stage, extra), LINE_CARD_Y);
+      this.interactive(view, { kind: "line", index: slot }, unitCardInfo(unit.def, stage, extra), LINE_CARD);
     }
     add(text(this, 1120, LINE_FEET - 4, "front ▶", 16, COLORS.text, "700").setAlpha(0.6));
 
@@ -117,13 +120,13 @@ export class ShopScene extends Phaser.Scene {
       const view = add(
         new UnitView(this, x, SHOP_FEET, { def: offer.def, stage: 1, attack: offer.attack, health: offer.health, price: offer.price, frozen: offer.frozen, size: 100 }),
       ).setSelected(this.isSelected("shopUnit", index));
-      this.interactive(view, { kind: "shopUnit", index }, unitCardInfo(offer.def, 1, [`Evolves: ${def.names[0]} → ${def.names[1]} → ${def.names[2]}`]), SHOP_CARD_Y);
+      this.interactive(view, { kind: "shopUnit", index }, unitCardInfo(offer.def, 1, [`Evolves: ${def.names[0]} → ${def.names[1]} → ${def.names[2]}`]), SHOP_CARD);
       x += 128;
     });
     x += 24;
     run.shopInventions.forEach((offer, index) => {
       const view = add(new ItemView(this, x, SHOP_FEET, offer.def, offer.price, offer.frozen)).setSelected(this.isSelected("shopInvention", index));
-      this.interactive(view, { kind: "shopInvention", index }, inventionCardInfo(offer.def), SHOP_CARD_Y);
+      this.interactive(view, { kind: "shopInvention", index }, inventionCardInfo(offer.def), SHOP_CARD);
       x += 120;
     });
     if (run.round === 1 && run.line.every((u) => u === null)) {
@@ -161,18 +164,18 @@ export class ShopScene extends Phaser.Scene {
 
   private showCardFor(sel: Selection): void {
     const c = this.cards.get(keyOf(sel));
-    if (c) this.card.show(c.info, c.x, c.y);
+    if (c) this.card.show(c.info, c.x, c.place.y, c.place.edge);
   }
 
   /** Hover shows the card; tap selects (and pins the card); drag drops onto a Line slot. */
-  private interactive(view: UnitView | ItemView, source: Selection, info: CardInfo, cardY: number): void {
-    this.cards.set(keyOf(source), { info, x: view.x, y: cardY });
+  private interactive(view: UnitView | ItemView, source: Selection, info: CardInfo, place: CardPlace): void {
+    this.cards.set(keyOf(source), { info, x: view.x, place });
     const size = view.width;
     const zone = this.add.zone(view.x, view.y - size / 2 + 15, size, size + 50);
     this.layer.add(zone);
     zone.setInteractive({ useHandCursor: true, draggable: true });
     const home = { x: view.x, y: view.y };
-    zone.on("pointerover", () => !this.dragging && this.card.show(info, home.x, cardY));
+    zone.on("pointerover", () => !this.dragging && this.card.show(info, home.x, place.y, place.edge));
     zone.on("pointerout", () => {
       if (this.dragging) return;
       if (this.selected) this.showCardFor(this.selected);
@@ -192,11 +195,11 @@ export class ShopScene extends Phaser.Scene {
       this.layer.bringToTop(view);
       this.highlightSlots(source);
     });
-    zone.on("drag", (pointer: Phaser.Input.Pointer) => view.setPosition(pointer.x, pointer.y + size / 2));
+    zone.on("drag", (pointer: Phaser.Input.Pointer) => view.setPosition(pointer.worldX, pointer.worldY + size / 2));
     zone.on("dragend", (pointer: Phaser.Input.Pointer) => {
       this.dragging = false;
       this.justDragged = true;
-      const slot = SLOT_X.findIndex((sx) => Math.abs(pointer.x - sx) < SLOT_HALF_WIDTH && pointer.y > LINE_FEET - 190 && pointer.y < LINE_FEET + 60);
+      const slot = SLOT_X.findIndex((sx) => Math.abs(pointer.worldX - sx) < SLOT_HALF_WIDTH && pointer.worldY > LINE_FEET - 190 && pointer.worldY < LINE_FEET + 60);
       view.setPosition(home.x, home.y);
       if (slot >= 0) this.onSlot(slot, "drop");
       else this.render();
