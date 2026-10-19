@@ -37,6 +37,10 @@ export function artKey(id: string, stage = 1): string {
 }
 
 /** Subjects with one image rather than one per Stage. */
+/** Real pixels per stage pixel. The game is laid out on a 1280×720 stage and drawn zoomed, so it stays sharp when the
+ * browser shows it larger or on a high-DPI screen instead of stretching a 1280×720 picture. */
+export const RESOLUTION = Math.min(3, Math.max(1, window.devicePixelRatio * Math.min(screen.width / 1280, screen.height / 720)));
+
 export const SINGLE_IMAGE = new Set(["cousin", "fire", "beer", "roads", "canned", "gene"]);
 
 export const AGE_COLORS: Record<Age, number> = {

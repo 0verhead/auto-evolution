@@ -4,10 +4,10 @@ import { AGES } from "../simulation/types";
 import { BattleScene } from "./BattleScene";
 import { EndScene } from "./EndScene";
 import { ShopScene } from "./ShopScene";
-import { COLORS, FONT_CHUNKY, FONT_DISPLAY, SINGLE_IMAGE, artKey } from "./art";
+import { COLORS, FONT_CHUNKY, FONT_DISPLAY, RESOLUTION, SINGLE_IMAGE, artKey } from "./art";
 import { loadSounds } from "./sound";
 import { buildGhosts, load, startRun } from "./state";
-import { text } from "./ui";
+import { stage, text } from "./ui";
 
 /** Loads art, sounds and fonts, plays the bot Ghost pool, then opens the shop (resuming a saved Run if there is one). */
 class BootScene extends Phaser.Scene {
@@ -16,6 +16,7 @@ class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
+    stage(this);
     const bar = this.add.rectangle(340, 470, 0, 10, 0xea580c).setOrigin(0, 0.5);
     this.load.on("progress", (p: number) => bar.setSize(600 * p, 10));
     for (const age of AGES) this.load.image(`bg.${age}`, `art/bg.${age}.jpg`);
@@ -41,6 +42,8 @@ new Phaser.Game({
   type: Phaser.AUTO,
   parent: "game",
   backgroundColor: COLORS.background,
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 1280, height: 720 },
+  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: Math.round(1280 * RESOLUTION), height: Math.round(720 * RESOLUTION) },
+  // Figures are drawn smaller than their 512 px art; mipmaps keep them smooth instead of jagged.
+  render: { mipmapFilter: "LINEAR_MIPMAP_LINEAR" },
   scene: [BootScene, ShopScene, BattleScene, EndScene],
 });

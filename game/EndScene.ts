@@ -3,7 +3,7 @@ import { AGES } from "../simulation/types";
 import { latestAgeIndex } from "../simulation/units";
 import { COLORS, FONT_DISPLAY } from "./art";
 import { clearSave, startRun, type Saved } from "./state";
-import { backdrop, button, chunky, text } from "./ui";
+import { backdrop, button, chunky, stage, text } from "./ui";
 
 export class EndScene extends Phaser.Scene {
   constructor() {
@@ -11,6 +11,7 @@ export class EndScene extends Phaser.Scene {
   }
 
   create(data: { saved: Saved }): void {
+    stage(this);
     const run = data.saved.run;
     clearSave();
     const won = run.phase === "won";
