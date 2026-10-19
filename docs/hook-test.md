@@ -103,3 +103,16 @@ Neither change moves test 1. Both reduce Stone in the Purist's winning Lines, bu
 - The Tribe Mother was in 91% of late winning Lines and her effect is far above tier-1 strength, but giving her the Ant's effect only lets other Stone Units take her place. A bigger roster doesn't help either, so duplicates being easy isn't the cause.
 - The cause is where stats pile up. Stone Units in late winning Lines have 20.3 attack plus health on average (70% at Stage 2, 21% at Stage 3) from merges, Inventions and other Units' buffs. A fresh Sci-Fi Unit has 12–17 even with SAP tier-6 stats.
 - The later Ages lack SAP's late-game effects. SAP's tier-5 and tier-6 pets scale or affect the whole team (Leopard, Mammoth, Shark, Turkey). Modern's Industry abilities work only in the shop (the Clerk is in 1% of late winning Lines), and in Sci-Fi only the Cyborg matters (86%; AI Core 18%, Time Traveler 29%).
+
+**2026-10-19, SAP late-game effects** (Factory Worker with SAP's Monkey: "End of round: give the front friend +2/+3"; Time Traveler with SAP's Mammoth plus the Bridge filter: "Faint: give every friend from a different Age +2/+2"):
+
+| Variant | Simple bots: Stone / Bronze / Iron | Scouting bots: Stone / Bronze / Iron |
+|---|---|---|
+| Late-game effects only | 98% / 84% / 58% | 99% / 82% / 35% |
+| … with tiers 1, 2, 4, 5, 6 and old Ages 0.5× | 89% / 74% / 72% | 88% / 58% / 64% |
+| … and the Ant Tribe Mother | 88% / 72% / 75% | 85% / 56% / 62% |
+| … and old Ages 0.25× | 81% / 69% / 78% | 83% / 53% / 65% |
+
+No SAP-sourced version brings Stone below about 80%. The Monkey-style Factory Worker often buffs a Stone Unit at the front, which makes old Units stronger still. Only a stat curve beyond SAP's numbers (Iron +1, Modern +3, Sci-Fi +5, old Ages 0.25×) passes.
+
+Measured per Unit instead of per Age, the picture differs. With the Ant Tribe Mother, tiers 1, 2, 4, 5, 6 and old Ages 0.25× (scouting bots, seed 1), no old Unit is in more than 60% of late winning Lines (Caveman 45%, Tribe Mother 49%, Brick Carrier 34%, Legionary 60%). Stone reaches 81% only because it has three Units that each appear about half the time.
