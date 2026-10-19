@@ -1,6 +1,6 @@
 // A battle between two Lines, as in SAP: start-of-battle abilities by attack,
 // then the two front Units hit each other at the same time until one side is empty.
-import { createRng, next, type Rng } from "./rng";
+import { createRng, next, pick, type Rng } from "./rng";
 import { unitDef } from "./roster";
 import { LINE_SIZE, type BattleApi, type BattleUnit, type Line, type Trigger } from "./types";
 import { stageOf } from "./units";
@@ -66,6 +66,10 @@ class Battle implements BattleApi {
 
   // BattleApi
 
+  pick<T>(items: readonly T[]): T | undefined {
+    return pick(this.rng, items);
+  }
+
   friends(self: BattleUnit): BattleUnit[] {
     return this.sides[self.side].filter((u) => u !== self);
   }
@@ -114,7 +118,7 @@ class Battle implements BattleApi {
 
   copyAbility(self: BattleUnit, from: BattleUnit): void {
     const source = from.ability;
-    if (!source || source.def === "aicore") return;
+    if (!source || unitDef(source.def).copiesAbilities) return;
     self.ability = { def: source.def, stage: self.stage };
     this.events.push({ type: "copy", unit: self.id, label: label(self), copied: unitDef(source.def).names[0] });
     if (unitDef(source.def).trigger === "startOfBattle") this.useAbility(self);

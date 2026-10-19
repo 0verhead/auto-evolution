@@ -181,6 +181,7 @@ export const UNITS: UnitDef[] = [
     attack: 1,
     health: 2,
     trigger: "startOfBattle",
+    copiesAbilities: true,
     text: (n) => `Start of battle: copy the ability of the friend ahead, at Stage ${n}.`,
     battle: (b, self) => {
       const ahead = b.ahead(self);
