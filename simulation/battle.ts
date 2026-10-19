@@ -7,15 +7,26 @@ import { stageOf } from "./units";
 
 export type Outcome = "win" | "loss" | "draw";
 
+/** A Unit as the renderer needs it. */
+export interface UnitView {
+  id: number;
+  def: string;
+  stage: number;
+  attack: number;
+  health: number;
+  armor: number;
+}
+
 export type BattleEvent =
+  | { type: "start"; sides: [UnitView[], UnitView[]] }
   | { type: "ability"; unit: number; label: string; text: string }
   | { type: "attack"; attacker: number; target: number; label: string }
-  | { type: "hurt"; unit: number; label: string; damage: number; absorbed: number; health: number }
-  | { type: "armor"; unit: number; label: string; amount: number }
-  | { type: "buff"; unit: number; label: string; attack: number; health: number }
+  | { type: "hurt"; unit: number; label: string; damage: number; absorbed: number; health: number; armor: number }
+  | { type: "armor"; unit: number; label: string; amount: number; armor: number }
+  | { type: "buff"; unit: number; label: string; attack: number; health: number; view: UnitView }
   | { type: "copy"; unit: number; label: string; copied: string }
   | { type: "faint"; unit: number; label: string }
-  | { type: "summon"; unit: number; label: string; side: 0 | 1; at: number }
+  | { type: "summon"; unit: number; label: string; side: 0 | 1; at: number; view: UnitView }
   | { type: "end"; outcome: Outcome; runaway: boolean };
 
 export interface BattleResult {
@@ -49,6 +60,7 @@ class Battle implements BattleApi {
   }
 
   run(): Outcome {
+    this.events.push({ type: "start", sides: [this.sides[0].map(view), this.sides[1].map(view)] });
     this.startOfBattle();
     for (let i = 0; i < MAX_EXCHANGES && !this.runaway && this.sides[0].length > 0 && this.sides[1].length > 0; i++) {
       const [a, d] = [this.sides[0][0]!, this.sides[1][0]!];
@@ -89,8 +101,9 @@ class Battle implements BattleApi {
     if (units.length >= LINE_SIZE) return;
     const cousin = this.create("cousin", side, attack, health, 0);
     cousin.ability = null;
-    units.splice(Math.min(at, units.length), 0, cousin);
-    this.events.push({ type: "summon", unit: cousin.id, label: label(cousin), side, at });
+    const index = Math.min(at, units.length);
+    units.splice(index, 0, cousin);
+    this.events.push({ type: "summon", unit: cousin.id, label: label(cousin), side, at: index, view: view(cousin) });
     for (const friend of this.friends(cousin)) {
       if (this.triggerOf(friend) === "friendSummoned") this.useAbility(friend, cousin);
     }
@@ -101,19 +114,19 @@ class Battle implements BattleApi {
     const absorbed = Math.min(target.armor, amount);
     target.armor -= absorbed;
     target.health -= amount - absorbed;
-    this.events.push({ type: "hurt", unit: target.id, label: label(target), damage: amount, absorbed, health: target.health });
+    this.events.push({ type: "hurt", unit: target.id, label: label(target), damage: amount, absorbed, health: target.health, armor: target.armor });
     if (target.health <= 0 && !target.killedBy) target.killedBy = source;
   }
 
   giveArmor(target: BattleUnit, amount: number): void {
     target.armor += amount;
-    this.events.push({ type: "armor", unit: target.id, label: label(target), amount });
+    this.events.push({ type: "armor", unit: target.id, label: label(target), amount, armor: target.armor });
   }
 
   buff(target: BattleUnit, attack: number, health: number): void {
     target.attack += attack;
     target.health += health;
-    this.events.push({ type: "buff", unit: target.id, label: label(target), attack, health });
+    this.events.push({ type: "buff", unit: target.id, label: label(target), attack, health, view: view(target) });
   }
 
   copyAbility(self: BattleUnit, from: BattleUnit): void {
@@ -209,6 +222,10 @@ class Battle implements BattleApi {
   private alive(unit: BattleUnit): boolean {
     return this.sides[unit.side].includes(unit);
   }
+}
+
+function view(unit: BattleUnit): UnitView {
+  return { id: unit.id, def: unit.def, stage: unit.stage, attack: unit.attack, health: unit.health, armor: unit.armor };
 }
 
 function label(unit: BattleUnit): string {
