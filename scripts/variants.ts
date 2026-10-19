@@ -25,7 +25,7 @@ function rareOldAges(weight: number): Variant {
 
 const weakerStone: Variant = {
   name: "weaker-stone",
-  description: "Each Stone Unit loses 1 from its higher stat (Caveman 1/2, Drummer 1/1, Gatherer 2/1)",
+  description: "Each Stone Unit loses 1 from its higher stat (adopted on 2026-10-19, so it now takes off a second point)",
   apply: () => {
     const before = UNITS.filter((u) => u.age === "stone" && !u.token).map((u) => ({ u, attack: u.attack, health: u.health }));
     for (const { u } of before) {
@@ -269,6 +269,34 @@ function pricedByAge(prices: number[], advance: Partial<typeof advanceRules> = {
   };
 }
 
+const evenGatherer: Variant = {
+  name: "gatherer-even",
+  description: "The Gatherer's gift is +1/+1 / +2/+2 / +3/+3 instead of SAP's Ant +2/+1 / +4/+2 / +6/+3",
+  apply: () => {
+    const d = unitDef("gatherer");
+    const saved = { text: d.text, battle: d.battle };
+    d.text = (n) => `Faint: give a random friend from a different Age +${n}/+${n}.`;
+    d.battle = (b, self, n) => {
+      const target = b.pick(b.friends(self).filter((f) => f.age !== self.age));
+      if (target) b.buff(target, n, n);
+    };
+    return () => Object.assign(d, saved);
+  },
+};
+
+/** Diagnostic: is the Gatherer kept for herself, or would any cheap Stone Unit take her place? */
+const noGatherer: Variant = {
+  name: "no-gatherer",
+  description: "The Gatherer is never offered in the shop",
+  apply: () => {
+    const d = unitDef("gatherer");
+    d.token = true;
+    return () => {
+      d.token = undefined;
+    };
+  },
+};
+
 export const VARIANTS: Variant[] = [
   { name: "baseline", description: "Rules as in docs/roster.md", apply: () => () => {} },
   rareOldAges(0.5),
@@ -324,4 +352,23 @@ export const VARIANTS: Variant[] = [
   pricedByAge([3, 3, 3, 3, 3], { automatic: true, startPrice: 8, drop: 2 }, "-auto-8-2"),
   pricedByAge([3, 3, 3, 3, 3], { automatic: true, startPrice: 9, drop: 3 }, "-auto-9-3"),
   pricedByAge([2, 3, 3, 4, 5], { automatic: true, startPrice: 4, drop: 2 }, "-auto-4-2"),
+  evenGatherer,
+  noGatherer,
+  ...[2, 3].map(
+    (window): Variant => ({
+      name: `window-${window}`,
+      description: `The shop offers Units of the Run's Age and the ${window - 1} before it only`,
+      apply: () => {
+        const before = shopRules.ageWindow;
+        shopRules.ageWindow = window;
+        return () => {
+          shopRules.ageWindow = before;
+        };
+      },
+    }),
+  ),
+  pricedByAge([3, 3, 4, 4, 5], { automatic: true }, "-auto"),
+  pricedByAge([3, 3, 4, 5, 6], { automatic: true }, "-auto"),
+  pricedByAge([3, 4, 4, 5, 5], { automatic: true }, "-auto"),
+  pricedByAge([3, 3, 4, 5, 5], { automatic: true }, "-auto"),
 ];

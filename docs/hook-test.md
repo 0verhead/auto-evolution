@@ -154,3 +154,18 @@ After this, the shop went back to SAP's odds (every unlocked Unit equally likely
 - Which timing is best depends on skill: simple bots do best by rushing, scouting bots are even between rushing and waiting. Steady is the weakest timing for both, which is allowed.
 - Test 1 on the adopted rules (simple bots, 3 seeds): Caveman 65%; Stone / Bronze / Iron 98% / 69% / 66%; 3/3 seeds pass. Old Units stay a choice.
 - Model player (6 Runs, seeds 401–406, with previews, against Ghosts of the Advance bots): told only "Advance for X gold", it paid once in 6 Runs and otherwise waited for history; it won 1 Run. Told which Units the next Age brings (as the game's hover preview now shows), it paid in 2 of 6 Runs (one Rushed to Sci-Fi by Round 9) and reached Iron between Rounds 4 and 7, which meets test 4's spread of 3 Rounds, but it won no Run. Twelve Runs are too few to rank, and the previews only score the current Line, which undervalues an Advance. Whether players use the button is a question for test 3.
+
+**2026-10-19, cheap Stone Units are kept automatically** (test 1 with scouting bots on the adopted rules, 1,000 Runs × 3 seeds, then 600 × 2 per variant):
+
+| Rules | Test 1: most kept old Unit; Stone / Bronze / Iron; seeds passing | Test 4 simple / scouting: best / next best |
+|---|---|---|
+| adopted (Stone Units at 2 gold) | Gatherer 85%; 99% / 55% / 63%; 0/3 | 2.06 / 1.01 |
+| Gatherer's gift +1/+1 / +2/+2 / +3/+3 | Gatherer 81%; 0/2 | 2.29 / – |
+| Gatherer never in the shop | Caveman 91%; 0/2 | – |
+| Stone Units at 3 gold (3/3/4/4/5 … 3/4/4/5/5) | – | Rush 34–44% of Runs, 4.05–5.88 |
+| shop offers only the Run's Age and 1 / 2 before it | Legionary 63%, 2/2 / Gatherer 76%, 0/2 | 5.74 / 2.75 |
+| **Stone Units 1 lower in their higher stat (Caveman 1/2, Drummer 1/1, Gatherer 2/1)** | Gatherer 72%; 98% / 57% / 68%; 1/2 | 1.91 / 1.99 |
+
+- It isn't the Gatherer: without her the Caveman takes her place. A 2-gold Unit is cheap to collect and evolve early, so good players keep one in almost every late Line.
+- Stone at 3 gold brings rushing back; the cheap Stone Age is what makes waiting worth it. Narrowing the shop to recent Ages fixes test 1 but also brings rushing back.
+- Weaker Stone stats are adopted. Everything now passes or sits at the limit: test 1 at 72% in one seed of two, test 4 at 1.91 and 1.99. With them, rushing wins about twice as often as waiting for both bot types (simple 29% / 15%, scouting 28% / 14%), which also gives players more reason to press the Advance button. Whether testers keep a Stone Unit by reflex is a question for test 3.

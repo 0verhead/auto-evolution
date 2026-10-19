@@ -4,11 +4,13 @@ Three Units per Age (Front, Back, Bridge). Stats are borrowed from a Counterpart
 
 ## Stone (Numbers), SAP tier 1
 
+Stone Units cost only 2 gold, so each has 1 less than its Counterpart in its higher stat; at full stats a Stone Unit sat in almost every strong late Line (docs/hook-test.md, 2026-10-19).
+
 | Slot | Stages | Art | Counterpart | Stats | Ability |
 |---|---|---|---|---|---|
-| Front | Caveman → Big Caveman → Biggest Caveman | 🧔 | Cricket | 1/3 | Faint: summon a 1/1 / 2/2 / 3/3 Cousin. |
-| Back | Log Drummer → Bone Drummer → Thunder Drummer | 🥁 | Horse | 2/1 | Friend summoned: give it +1 / +2 / +3 attack until end of battle. |
-| Bridge | Gatherer → Tribe Mother → Great Mother | 👵 | Ant | 2/2 | Faint: give a random friend from a different Age +2/+1 / +4/+2 / +6/+3. Her last gift goes to the stranger. |
+| Front | Caveman → Big Caveman → Biggest Caveman | 🧔 | Cricket | 1/2 | Faint: summon a 1/1 / 2/2 / 3/3 Cousin. |
+| Back | Log Drummer → Bone Drummer → Thunder Drummer | 🥁 | Horse | 1/1 | Friend summoned: give it +1 / +2 / +3 attack until end of battle. |
+| Bridge | Gatherer → Tribe Mother → Great Mother | 👵 | Ant | 2/1 | Faint: give a random friend from a different Age +2/+1 / +4/+2 / +6/+3. Her last gift goes to the stranger. |
 
 ## Bronze (Patience), SAP tier 2
 

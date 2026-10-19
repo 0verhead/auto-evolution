@@ -34,6 +34,8 @@ export const advanceRules = {
 export const shopRules = {
   /** Weight of Units from an Age two or more behind the latest one (1 = as likely as any other Unit, as in SAP). */
   oldAgeWeight: 1,
+  /** How many Ages the shop offers, counting back from the Run's (5 = every Age, as in SAP). */
+  ageWindow: 5,
   /** Price of a Unit by its Age (Stone … Sci-Fi). */
   unitPriceByAge: [2, 3, 3, 4, 4],
 };
@@ -336,7 +338,8 @@ function startRound(run: Run): void {
 /** Keeps frozen offers and refills the rest from the Run's Age and every Age before it. */
 function rollShop(run: Run): void {
   const latest = run.age;
-  const unitPool = UNITS.filter((u) => !u.token && ageIndex(u.age) <= latest);
+  const oldest = latest - shopRules.ageWindow + 1;
+  const unitPool = UNITS.filter((u) => !u.token && ageIndex(u.age) <= latest && ageIndex(u.age) >= oldest);
   const inventionPool = INVENTIONS.filter((i) => ageIndex(i.age) <= latest);
   run.shopUnits = run.shopUnits.filter((s) => s.frozen);
   const weight = (u: (typeof unitPool)[number]) => (ageIndex(u.age) <= latest - 2 ? shopRules.oldAgeWeight : 1);
