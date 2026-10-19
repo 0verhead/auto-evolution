@@ -206,11 +206,12 @@ export function inventionCardInfo(id: string): CardInfo {
   return { id, stage: 1, title: d.name, age: d.age, lines: [d.text, d.targeted ? "Drop it on a Unit." : "Drop it anywhere on your Line."] };
 }
 
-export type ButtonStyle = "primary" | "neutral" | "danger";
+export type ButtonStyle = "primary" | "neutral" | "danger" | "age";
 const BUTTON_COLORS: Record<ButtonStyle, [number, number]> = {
   primary: [0xea580c, 0x9a3412],
   neutral: [0x57534e, 0x292524],
   danger: [0xb45309, 0x78350f],
+  age: [0x0f766e, 0x134e4a],
 };
 
 /** A chunky 3D button with an icon, like SAP's. */

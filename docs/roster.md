@@ -1,6 +1,6 @@
 # v1 Roster
 
-Three Units per Age (Front, Back, Bridge). Stats are borrowed from a Counterpart in the SAP Turtle Pack. Stone, Bronze and Sci-Fi take their tier by position (1, 2 and SAP's endgame tier 6); Iron and Modern take tiers 4 and 5, skipping tier 3. With SAP's own Round-matched tiers (1–5), later Ages were too weak to replace old Units, so keeping an old Unit was automatic (docs/hook-test.md, 2026-10-19). Ability numbers are listed for Stage 1 / 2 / 3. Names are placeholders.
+Three Units per Age (Front, Back, Bridge). Stats are borrowed from a Counterpart in the SAP Turtle Pack. Stone, Bronze and Sci-Fi take their tier by position (1, 2 and SAP's endgame tier 6); Iron and Modern take tiers 4 and 5, skipping tier 3. With SAP's own Round-matched tiers (1–5), later Ages were too weak to replace old Units, so keeping an old Unit was automatic (docs/hook-test.md, 2026-10-19). Ability numbers are listed for Stage 1 / 2 / 3. Names are placeholders. A Unit costs 2 gold in the Stone Age, 3 in the Bronze and Iron Ages and 4 in the Modern and Sci-Fi Ages (ADR 0005).
 
 ## Stone (Numbers), SAP tier 1
 

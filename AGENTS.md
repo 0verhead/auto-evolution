@@ -20,7 +20,7 @@ Single-context: use the root `CONTEXT.md` and `docs/adr/`. See `docs/agents/doma
 
 ## Verification
 
-There is no automated test suite. Verify changes by playing the game: open the browser game (`npm run dev`, then `?seed=123` for a reproducible Run), and run the simulation (`npm run play`, `npm run hook`, `npm run compare`) and read the battles and Runs it prints.
+There is no automated test suite. Verify changes by playing the game: open the browser game (`npm run dev`, then `?seed=123` for a reproducible Run), and run the simulation (`npm run play`, `npm run hook`, `npm run compare`, `npm run advance`) and read the battles and Runs it prints.
 
 ## Layout
 

@@ -6,9 +6,10 @@ The prototype exists to answer one question: do old Units stay relevant through 
 |---|---|---|---|
 | 1 | Keeping an old Unit is a choice | Winning Lines from Round 10+, 1,000 seeded Runs, with simple and with scouting bots | Each old Age (Stone, Bronze, Iron) appears in 30–70% of them. Below 30% old Units are dead weight; above 70% keeping them is automatic. |
 | 2.5 | Model player (optional) | An offline bot backed by OpenAI's Decisions API, told only to win, with no hint about mixing | It keeps some old Units and replaces others, and its winning Lines mix Ages |
+| 4 | Advancing is a choice | Runs won in a league of bots that differ only in when they Advance: Rush (as soon as possible), Steady (every 2 Rounds), Boom (never pays, waits for history to move it on); 1,000 seeded Runs, with simple and with scouting bots. The model player (2.5) is checked too. | No timing wins more than 2× as many Runs as the next best. A weak timing is allowed: strategies don't need to be equal, only free of a dominant one. The model player reaches the Iron Age at Rounds at least 3 apart across its Runs, so the right timing depends on the Run. |
 | 3 | Humans (after 1) | 3–5 testers, several Runs each | Testers keep or buy old Units on purpose in late Rounds and can say why |
 
-Test 1 runs in Node with the utility-scored bots (`npm run hook`, `npm run compare`). Test 2.5 runs offline only and stores its Lines as Ghosts. Its API key comes from the environment at runtime and is never committed.
+Test 4 was added on 2026-10-19, when Advancing replaced the shared timeline (ADR 0005); test 1 is now measured with bots that Advance every 2 Rounds, like the old timeline. Test 4 was first "the best timing wins at most 1.5× the worst"; it was relaxed the same day, because some strategies may be weaker than others as long as none dominates. Test 1 and test 4 run in Node with the utility-scored bots (`npm run hook`, `npm run compare`, `npm run advance`). Test 2.5 runs offline only and stores its Lines as Ghosts. Its API key comes from the environment at runtime and is never committed.
 
 Until 2026-10-19 test 1 was "the Mixer beats the Purist in 55–65% of Round 9–12 battles" and test 2 was "at least 2 old Units per late winning Line". They were replaced because nearly every Line is mixed whatever a player aims for, so the Mixer and the Purist barely differ, and because the new test 1's lower limit already covers old Units staying relevant. Results before that date refer to the old tests.
 
@@ -129,3 +130,27 @@ Measured per Unit instead of per Age, the picture differs. With the Ant Tribe Mo
 - Test 2.5 (model player with previews, 6 Runs, seeds 301–306): 1 Run won, 4–10 wins in the others. It sold 4–9 Units per Run, and its winning Lines from Round 10+ held 2.60 old Units from 3.67 different Ages. It keeps some old Units and replaces others, and its winning Lines mix Ages.
 
 After this, the shop went back to SAP's odds (every unlocked Unit equally likely), since test 1 passes without making old Ages rarer. The rules are now the "adopted but with SAP's shop odds" row above.
+
+**2026-10-19, Advancing replaces the shared timeline** (`npm run advance`, test 4; bots Rush, Steady and Boom differ only in when they Advance, and judge Units by stats alone; 1,000 Runs × 3 seeds for simple bots, 400 × 2 for scouting bots). The first runs still included Hold (Advance every 2 Rounds, never past Iron), and Boom Advanced after 3 Rounds whatever the price.
+
+| Rules | Simple bots: Rush / Steady / Boom / Hold | Scouting bots: same |
+|---|---|---|
+| Advance at 6 gold, 2 less per Round; flat Unit price 3 | 53% / 9% / 4% / 9% | 37% / 10% / 7% / 12% |
+| … at 3–9 gold, flat or falling | Rush 43–62%, all others 2–14% | |
+| … plus 1–2 gold per Round stayed, and/or earliest Rounds 2/4/6/8 | Rush 26–49%, all others 5–25% | |
+| Unit price by Age 2/3/4/5/6 | 18% / 10% / 21% / 25% | 7% / 11% / 25% / 20% |
+| Unit price by Age 2/3/3/4/5 | 24% / 10% / 17% / 20% | 14% / 12% / 23% / 23% |
+| … with a free Advance | Rush 36–40%, all others 7–20% | |
+
+- A one-time price can't balance a permanent advantage: the Age's higher stats stay for the rest of the Run, so rushing won at every price.
+- Pricing Units by Age stopped rushing but made holding back the strongest plan, so the best strategy was to barely use the twist, and the median Ghost never reached Sci-Fi.
+- With the automatic Advance (once Advancing would be free, history moves the Run on), holding back is impossible. Hold was dropped from the test and Boom became "never pays".
+
+| Adopted rules (ADR 0005): Advance 6 → 4 → 2 → by itself, Units 2/3/3/4/4 | Rush / Steady / Boom | best / next best | median Ghost reaches Bronze / Iron / Modern / Sci-Fi |
+|---|---|---|---|
+| Simple bots | 30.0% / 11.0% / 14.6% | 2.06, fails narrowly | Round 4 / 5 / 7 / 10 |
+| Scouting bots | 18.7% / 12.0% / 18.4% | 1.01, passes | Round 3 / 5 / 8 / 9 |
+
+- Which timing is best depends on skill: simple bots do best by rushing, scouting bots are even between rushing and waiting. Steady is the weakest timing for both, which is allowed.
+- Test 1 on the adopted rules (simple bots, 3 seeds): Caveman 65%; Stone / Bronze / Iron 98% / 69% / 66%; 3/3 seeds pass. Old Units stay a choice.
+- Model player (6 Runs, seeds 401–406, with previews, against Ghosts of the Advance bots): told only "Advance for X gold", it paid once in 6 Runs and otherwise waited for history; it won 1 Run. Told which Units the next Age brings (as the game's hover preview now shows), it paid in 2 of 6 Runs (one Rushed to Sci-Fi by Round 9) and reached Iron between Rounds 4 and 7, which meets test 4's spread of 3 Rounds, but it won no Run. Twelve Runs are too few to rank, and the previews only score the current Line, which undervalues an Advance. Whether players use the button is a question for test 3.

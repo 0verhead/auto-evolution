@@ -1,8 +1,9 @@
 // Plays back a battle from the simulation's event list (ADR 0004: the renderer never decides anything).
 import * as Phaser from "phaser";
 import type { BattleEvent, Outcome, UnitSnapshot } from "../simulation/battle";
-import { latestAgeIndex } from "../simulation/units";
-import { AGES } from "../simulation/types";
+import { unitDef } from "../simulation/roster";
+import { AGE_NAMES, AGES } from "../simulation/types";
+import { ageIndex } from "../simulation/units";
 import { COLORS, FONT_DISPLAY } from "./art";
 import { play } from "./sound";
 import type { Saved } from "./state";
@@ -52,10 +53,10 @@ export class BattleScene extends Phaser.Scene {
 
   create(): void {
     stage(this);
-    backdrop(this, AGES[latestAgeIndex(this.round)]!);
+    backdrop(this, AGES[this.saved.run.age]!);
     text(this, 640, 34, `Round ${this.round}`, 30, COLORS.text, "900", FONT_DISPLAY).setStroke("#1c1410", 5);
-    chunky(this, 330, 150, "You", 26);
-    chunky(this, 950, 150, "Ghost", 26);
+    chunky(this, 330, 150, `You · ${AGE_NAMES[AGES[this.saved.run.age]!]}`, 26);
+    chunky(this, 950, 150, `Ghost · ${AGE_NAMES[this.ghostAge()]}`, 26);
     this.banner = text(this, 640, 220, "", 18, COLORS.text, "700").setWordWrapWidth(900).setAlign("center").setBackgroundColor("#1c1410cc").setPadding(14, 6, 14, 6).setVisible(false);
     this.info = new InfoCard(this);
     button(this, 1030, 668, "Faster ▶▶", () => (this.speed = this.speed === 1 ? 3 : 1), true, 180);
@@ -144,6 +145,13 @@ export class BattleScene extends Phaser.Scene {
       case "end":
         return 0;
     }
+  }
+
+  /** The Ghost's Age as far as anyone can see: the latest Age among its Units. */
+  private ghostAge(): (typeof AGES)[number] {
+    const start = this.battleEvents.find((e) => e.type === "start");
+    const ages = start?.type === "start" ? start.sides[1].map((u) => ageIndex(unitDef(u.def).age)) : [];
+    return AGES[Math.max(0, ...ages)]!;
   }
 
   private place(view: UnitSnapshot, side: 0 | 1, at: number): void {

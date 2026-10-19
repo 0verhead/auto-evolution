@@ -1,5 +1,5 @@
 // The player's Run, the Ghosts they fight and saving between visits.
-import { MIXER, PURIST } from "../simulation/bot";
+import { ADVANCERS } from "../simulation/bot";
 import { league } from "../simulation/league";
 import { createRng, pick } from "../simulation/rng";
 import { newRun, type Run } from "../simulation/run";
@@ -13,7 +13,7 @@ let ghosts: Map<number, Line[]> | null = null;
 
 export function buildGhosts(seed: number): void {
   ghosts = new Map();
-  for (const g of league([PURIST, MIXER], GHOST_RUNS, seed).ghosts) ghosts.set(g.round, [...(ghosts.get(g.round) ?? []), g.line]);
+  for (const g of league(ADVANCERS, GHOST_RUNS, seed).ghosts) ghosts.set(g.round, [...(ghosts.get(g.round) ?? []), g.line]);
 }
 
 /** A Ghost from the same Round; past the last Round any bot reached, the last one. */
@@ -42,7 +42,8 @@ export function load(): Saved | null {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const saved = JSON.parse(raw) as Saved;
-    return saved.run.phase === "shop" ? saved : null;
+    // Runs saved before Advancing existed have no Age of their own.
+    return saved.run.phase === "shop" && typeof saved.run.age === "number" ? saved : null;
   } catch {
     return null;
   }

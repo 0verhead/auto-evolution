@@ -7,6 +7,7 @@
     "build": "vite build",
     "play": "tsx scripts/play.ts",
     "hook": "tsx scripts/hook.ts",
+    "advance": "tsx scripts/advance.ts",
     "model-play": "tsx scripts/model-play.ts",
     "compare": "tsx scripts/compare.ts",
     "pairings": "tsx scripts/pairings.ts",
