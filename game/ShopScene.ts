@@ -3,10 +3,10 @@ import { inventionDef, unitDef } from "../simulation/roster";
 import { act, resolveBattle, REROLL_PRICE, type Action } from "../simulation/run";
 import { AGE_NAMES, AGES, LINE_SIZE } from "../simulation/types";
 import { MAX_EXP, latestAgeIndex, stageOf } from "../simulation/units";
-import { COLORS, FONT } from "./art";
+import { AGE_COLORS, COLORS, FONT_DISPLAY } from "./art";
 import { muted, play, toggleMuted, type Sfx } from "./sound";
 import { ghostFor, save, type Saved } from "./state";
-import { UnitCard, button, inventionCard, text, toast } from "./ui";
+import { InfoCard, ItemView, UnitView, backdrop, button, inventionCardInfo, pill, text, toast, unitCardInfo, type CardInfo } from "./ui";
 
 type Selection = { kind: "shopUnit" | "shopInvention" | "line"; index: number };
 
@@ -21,19 +21,24 @@ const SOUND_FOR: Record<Action["type"], Sfx> = {
   endShop: "fight",
 };
 
-/** Slot 1 (the front) is on the right, facing the enemy. */
-const SLOT_X = [1010, 850, 690, 530, 370];
-const LINE_Y = 235;
-const SHOP_Y = 548;
-const SLOT_W = 140;
-const SLOT_H = 180;
+/** Slot 1 (the front) is on the right, facing the enemy. Units stand with their feet on LINE_FEET. */
+const SLOT_X = [1010, 845, 680, 515, 350];
+const LINE_FEET = 345;
+const SHOP_FEET = 588;
+const SLOT_HALF_WIDTH = 80;
+/** Where the info card appears for Line Units (below them) and shop offers (above them). */
+const LINE_CARD_Y = 445;
+const SHOP_CARD_Y = 370;
+
+const keyOf = (s: Selection) => `${s.kind}:${s.index}`;
 
 export class ShopScene extends Phaser.Scene {
   private saved!: Saved;
   private selected: Selection | null = null;
-  private hovered: Selection | null = null;
   private layer!: Phaser.GameObjects.Container;
-  private info!: Phaser.GameObjects.Text;
+  private card!: InfoCard;
+  private cards = new Map<string, { info: CardInfo; x: number; y: number }>();
+  private slotMarkers: Phaser.GameObjects.Ellipse[] = [];
   /** A release that ends a drag must not also count as a tap. */
   private dragging = false;
   private justDragged = false;
@@ -50,9 +55,11 @@ export class ShopScene extends Phaser.Scene {
   create(): void {
     this.input.dragDistanceThreshold = 8;
     this.input.on("pointerdown", () => (this.justDragged = false));
+    backdrop(this, AGES[latestAgeIndex(this.run.round)]!);
     this.layer = this.add.container(0, 0);
+    this.card = new InfoCard(this);
     this.render();
-    const round = this.saved.run.round;
+    const round = this.run.round;
     if (round > 1 && round % 2 === 1 && round <= 9) {
       toast(this, `Eureka! The ${AGE_NAMES[AGES[latestAgeIndex(round)]!]} Age begins`, 150);
       play(this, "eureka");
@@ -65,114 +72,147 @@ export class ShopScene extends Phaser.Scene {
 
   private render(): void {
     this.layer.removeAll(true);
+    this.cards.clear();
+    this.card.hide();
     const run = this.run;
     const age = AGES[latestAgeIndex(run.round)]!;
     const add = <T extends Phaser.GameObjects.GameObject>(o: T) => (this.layer.add(o), o);
 
-    add(text(this, 140, 36, `Round ${run.round}`, 26, COLORS.text, "800"));
-    add(text(this, 330, 36, `${AGE_NAMES[age]} Age`, 20, COLORS.muted));
-    add(text(this, 900, 36, `💰 ${run.gold}`, 26, COLORS.gold, "800"));
-    add(text(this, 1040, 36, `❤ ${run.lives}`, 26, COLORS.health, "800"));
-    add(text(this, 1170, 36, `🏆 ${run.wins}/10`, 26, COLORS.text, "800"));
-    const sound = add(text(this, 40, 36, muted() ? "🔇" : "🔊", 24));
+    // HUD
+    const sound = add(text(this, 34, 40, muted() ? "🔇" : "🔊", 24, COLORS.text, "400"));
     sound.setInteractive({ useHandCursor: true }).on("pointerup", () => sound.setText(toggleMuted() ? "🔇" : "🔊"));
-    add(text(this, 690, 96, "Your Line", 18, COLORS.muted));
-    add(text(this, 1150, LINE_Y, "front ▶", 18, COLORS.muted));
+    add(text(this, 150, 30, `Round ${run.round}`, 30, COLORS.text, "900", FONT_DISPLAY).setStroke("#1c1410", 5));
+    const chip = add(text(this, 150, 64, `${AGE_NAMES[age]} Age`, 14, "#14110f", "800"));
+    chip.setBackgroundColor(Phaser.Display.Color.IntegerToColor(AGE_COLORS[age]).rgba).setPadding(8, 2, 8, 2);
+    add(pill(this, 880, 42, "🪙", `${run.gold}`, COLORS.gold));
+    add(pill(this, 1010, 42, "❤️", `${run.lives}`, COLORS.health));
+    add(pill(this, 1160, 42, "🏆", `${run.wins}/10`, COLORS.text, 150));
 
+    // Line
+    this.slotMarkers = SLOT_X.map((x) => add(this.add.ellipse(x, LINE_FEET, 120, 34, 0x000000, 0.3).setStrokeStyle(2, 0xffffff, 0.15)));
     for (let slot = 0; slot < LINE_SIZE; slot++) {
-      const zone = add(this.add.rectangle(SLOT_X[slot]!, LINE_Y, SLOT_W, SLOT_H, 0x000000, 0.25).setStrokeStyle(2, 0x44403c));
-      zone.setInteractive().on("pointerup", () => !this.dragging && !this.justDragged && this.onSlot(slot, "tap"));
       const unit = run.line[slot];
-      if (!unit) continue;
-      const card = add(
-        new UnitCard(this, SLOT_X[slot]!, LINE_Y, {
-          def: unit.def,
-          stage: stageOf(unit.exp),
-          attack: unit.attack + unit.tempAttack,
-          health: unit.health + unit.tempHealth,
-          exp: unit.exp,
-          selected: this.isSelected("line", slot),
-        }),
-      );
-      this.makeDraggable(card, { kind: "line", index: slot });
+      if (!unit) {
+        const zone = add(this.add.zone(SLOT_X[slot]!, LINE_FEET - 70, SLOT_HALF_WIDTH * 2, 200));
+        zone.setInteractive().on("pointerup", () => !this.dragging && !this.justDragged && this.onSlot(slot, "tap"));
+        continue;
+      }
+      const stage = stageOf(unit.exp);
+      const view = add(
+        new UnitView(this, SLOT_X[slot]!, LINE_FEET, { def: unit.def, stage, attack: unit.attack + unit.tempAttack, health: unit.health + unit.tempHealth, exp: unit.exp }),
+      ).setSelected(this.isSelected("line", slot));
+      const needed = (stage === 1 ? 2 : 5) - unit.exp;
+      const extra = [stage === 3 ? "Fully evolved." : `${needed} more ${needed === 1 ? "copy" : "copies"} to evolve.`, `Sells for ${stage} gold.`];
+      if (unit.tempAttack || unit.tempHealth) extra.push(`+${unit.tempAttack}/+${unit.tempHealth} until the end of the next battle.`);
+      this.interactive(view, { kind: "line", index: slot }, unitCardInfo(unit.def, stage, extra), LINE_CARD_Y);
+    }
+    add(text(this, 1120, LINE_FEET - 4, "front ▶", 16, COLORS.text, "700").setAlpha(0.6));
+
+    // Shop
+    add(this.add.rectangle(640, 528, 1240, 170, 0x1c1410, 0.82).setStrokeStyle(3, 0x57534e));
+    add(text(this, 92, 454, "Shop", 18, COLORS.text, "700", FONT_DISPLAY).setBackgroundColor("#1c1410").setPadding(10, 2, 10, 2));
+    let x = 120;
+    run.shopUnits.forEach((offer, index) => {
+      const def = unitDef(offer.def);
+      const view = add(
+        new UnitView(this, x, SHOP_FEET, { def: offer.def, stage: 1, attack: offer.attack, health: offer.health, price: offer.price, frozen: offer.frozen, size: 100 }),
+      ).setSelected(this.isSelected("shopUnit", index));
+      this.interactive(view, { kind: "shopUnit", index }, unitCardInfo(offer.def, 1, [`Evolves: ${def.names[0]} → ${def.names[1]} → ${def.names[2]}`]), SHOP_CARD_Y);
+      x += 128;
+    });
+    x += 24;
+    run.shopInventions.forEach((offer, index) => {
+      const view = add(new ItemView(this, x, SHOP_FEET, offer.def, offer.price, offer.frozen)).setSelected(this.isSelected("shopInvention", index));
+      this.interactive(view, { kind: "shopInvention", index }, inventionCardInfo(offer.def), SHOP_CARD_Y);
+      x += 120;
+    });
+    if (run.round === 1 && run.line.every((u) => u === null)) {
+      add(text(this, 640, 405, "Drag a Unit from the shop into your Line. Drop a copy on the same Unit to evolve it. Hover or tap anything to read it.", 16).setStroke("#1c1410", 4));
     }
 
-    add(text(this, 90, 448, "Shop", 18, COLORS.muted));
-    let x = 110;
-    run.shopUnits.forEach((offer, index) => {
-      const card = add(
-        new UnitCard(this, x, SHOP_Y, {
-          def: offer.def,
-          stage: 1,
-          attack: offer.attack,
-          health: offer.health,
-          price: offer.price,
-          frozen: offer.frozen,
-          selected: this.isSelected("shopUnit", index),
-          width: 118,
-          height: 150,
-        }),
-      );
-      this.makeDraggable(card, { kind: "shopUnit", index });
-      x += 132;
-    });
-    x += 20;
-    run.shopInventions.forEach((offer, index) => {
-      const card = add(inventionCard(this, x, SHOP_Y, offer.def, offer.price, offer.frozen, this.isSelected("shopInvention", index)));
-      this.makeDraggable(card, { kind: "shopInvention", index });
-      x += 124;
-    });
-
-    this.info = add(
-      this.add.text(640, 390, "", { fontFamily: FONT, fontSize: "17px", color: COLORS.text, align: "center", wordWrap: { width: 1100 } }).setOrigin(0.5),
-    );
-    this.updateInfo();
-
+    // Buttons
     const sel = this.selected;
-    add(button(this, 110, 672, `Reroll (${REROLL_PRICE})`, () => this.perform({ type: "reroll" }), run.gold >= REROLL_PRICE));
+    add(button(this, 120, 668, `🎲 Roll ${REROLL_PRICE}`, () => this.perform({ type: "reroll" }), run.gold >= REROLL_PRICE));
+    const shopSel = sel && sel.kind !== "line" ? sel : null;
     add(
       button(
         this,
-        280,
-        672,
-        "Freeze",
-        () => sel && sel.kind !== "line" && this.perform({ type: "freeze", kind: sel.kind === "shopUnit" ? "unit" : "invention", shop: sel.index }, true),
-        sel !== null && sel.kind !== "line",
+        305,
+        668,
+        shopSel && this.isFrozen(shopSel) ? "❄ Unfreeze" : "❄ Freeze",
+        () => shopSel && this.perform({ type: "freeze", kind: shopSel.kind === "shopUnit" ? "unit" : "invention", shop: shopSel.index }, true),
+        shopSel !== null,
       ),
     );
-    add(button(this, 450, 672, "Sell", () => sel?.kind === "line" && this.perform({ type: "sell", slot: sel.index }), sel?.kind === "line"));
-    add(button(this, 1140, 672, "End turn ⚔", () => this.endTurn(), true, 200));
+    const sellValue = sel?.kind === "line" && run.line[sel.index] ? stageOf(run.line[sel.index]!.exp) : 0;
+    add(button(this, 490, 668, sellValue ? `🪙 Sell +${sellValue}` : "🪙 Sell", () => sel?.kind === "line" && this.perform({ type: "sell", slot: sel.index }), sellValue > 0, 170, "danger"));
+    add(button(this, 1130, 668, "End turn ▶", () => this.endTurn(), true, 210, "primary"));
+
+    if (sel) this.showCardFor(sel);
   }
 
   private isSelected(kind: Selection["kind"], index: number): boolean {
     return this.selected?.kind === kind && this.selected.index === index;
   }
 
-  private makeDraggable(card: Phaser.GameObjects.Container, source: Selection): void {
-    card.setInteractive({ useHandCursor: true, draggable: true });
-    const home = { x: card.x, y: card.y };
-    card.on("pointerover", () => ((this.hovered = source), this.updateInfo()));
-    card.on("pointerout", () => ((this.hovered = null), this.updateInfo()));
-    card.on("pointerup", () => {
+  private isFrozen(sel: Selection): boolean {
+    return (sel.kind === "shopUnit" ? this.run.shopUnits : this.run.shopInventions)[sel.index]?.frozen ?? false;
+  }
+
+  private showCardFor(sel: Selection): void {
+    const c = this.cards.get(keyOf(sel));
+    if (c) this.card.show(c.info, c.x, c.y);
+  }
+
+  /** Hover shows the card; tap selects (and pins the card); drag drops onto a Line slot. */
+  private interactive(view: UnitView | ItemView, source: Selection, info: CardInfo, cardY: number): void {
+    this.cards.set(keyOf(source), { info, x: view.x, y: cardY });
+    const size = view.width;
+    const zone = this.add.zone(view.x, view.y - size / 2 + 15, size, size + 50);
+    this.layer.add(zone);
+    zone.setInteractive({ useHandCursor: true, draggable: true });
+    const home = { x: view.x, y: view.y };
+    zone.on("pointerover", () => !this.dragging && this.card.show(info, home.x, cardY));
+    zone.on("pointerout", () => {
+      if (this.dragging) return;
+      if (this.selected) this.showCardFor(this.selected);
+      else this.card.hide();
+    });
+    zone.on("pointerup", () => {
       if (this.dragging || this.justDragged) return;
       if (source.kind === "line" && this.selected && !this.isSelected("line", source.index)) return this.onSlot(source.index, "tap");
       this.selected = this.isSelected(source.kind, source.index) ? null : source;
       if (this.selected) play(this, "select");
       this.render();
     });
-    card.on("dragstart", () => {
+    zone.on("dragstart", () => {
       this.dragging = true;
       this.selected = source;
-      this.layer.bringToTop(card);
+      this.card.hide();
+      this.layer.bringToTop(view);
+      this.highlightSlots(source);
     });
-    card.on("drag", (_p: Phaser.Input.Pointer, dragX: number, dragY: number) => card.setPosition(dragX, dragY));
-    card.on("dragend", (pointer: Phaser.Input.Pointer) => {
+    zone.on("drag", (pointer: Phaser.Input.Pointer) => view.setPosition(pointer.x, pointer.y + size / 2));
+    zone.on("dragend", (pointer: Phaser.Input.Pointer) => {
       this.dragging = false;
       this.justDragged = true;
-      const slot = SLOT_X.findIndex((sx) => Math.abs(pointer.x - sx) < SLOT_W / 2 && Math.abs(pointer.y - LINE_Y) < SLOT_H / 2);
-      card.setPosition(home.x, home.y);
+      const slot = SLOT_X.findIndex((sx) => Math.abs(pointer.x - sx) < SLOT_HALF_WIDTH && pointer.y > LINE_FEET - 190 && pointer.y < LINE_FEET + 60);
+      view.setPosition(home.x, home.y);
       if (slot >= 0) this.onSlot(slot, "drop");
       else this.render();
+    });
+  }
+
+  /** While dragging, light up the slots the dragged thing can go to. */
+  private highlightSlots(source: Selection): void {
+    const run = this.run;
+    this.slotMarkers.forEach((marker, slot) => {
+      const target = run.line[slot];
+      let ok: boolean;
+      if (source.kind === "shopUnit") ok = !target || (target.def === run.shopUnits[source.index]!.def && target.exp < MAX_EXP);
+      else if (source.kind === "shopInvention") ok = !inventionDef(run.shopInventions[source.index]!.def).targeted || target !== null;
+      else ok = slot !== source.index;
+      if (ok) marker.setFillStyle(0xfacc15, 0.35).setStrokeStyle(3, 0xfacc15, 0.9);
     });
   }
 
@@ -182,7 +222,7 @@ export class ShopScene extends Phaser.Scene {
     const sel = this.selected;
     const target = run.line[slot];
     if (!sel) {
-      if (target) this.selected = { kind: "line", index: slot };
+      if (target) return this.select(slot);
       return this.render();
     }
     if (sel.kind === "shopUnit") {
@@ -252,27 +292,5 @@ export class ShopScene extends Phaser.Scene {
     save(saved);
     play(this, "fight");
     this.scene.start("battle", { saved, events: result.events, outcome: result.outcome, round: ready.round });
-  }
-
-  private updateInfo(): void {
-    if (!this.info) return;
-    const sel = this.hovered ?? this.selected;
-    const run = this.run;
-    let message = "Drag a Unit from the shop into your Line, or tap it and then tap a slot. Drop a copy on the same Unit to evolve it.";
-    if (sel?.kind === "line" && run.line[sel.index]) {
-      const u = run.line[sel.index]!;
-      const def = unitDef(u.def);
-      const stage = stageOf(u.exp);
-      const needed = (stage === 1 ? 2 : 5) - u.exp;
-      const next = stage === 3 ? "Fully evolved." : `${needed} more ${needed === 1 ? "copy" : "copies"} to evolve.`;
-      message = `${def.names[stage - 1]} · ${AGE_NAMES[def.age]} Age · Stage ${stage}\n${def.text(stage)}\n${next} Sell for ${stage} gold.`;
-    } else if (sel?.kind === "shopUnit" && run.shopUnits[sel.index]) {
-      const def = unitDef(run.shopUnits[sel.index]!.def);
-      message = `${def.names[0]} · ${AGE_NAMES[def.age]} Age\n${def.text(1)}`;
-    } else if (sel?.kind === "shopInvention" && run.shopInventions[sel.index]) {
-      const def = inventionDef(run.shopInventions[sel.index]!.def);
-      message = `${def.name} · ${AGE_NAMES[def.age]} Age\n${def.text}${def.targeted ? " Drop it on a Unit." : " Drop it anywhere on your Line."}`;
-    }
-    this.info.setText(message);
   }
 }
